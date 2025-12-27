@@ -336,7 +336,7 @@ impl Drop for RedisSemaphoreHandle {
     fn drop(&mut self) {
         // Abort extension task
         self._extension_task.abort();
-        // Note: We can't async release in Drop, so the ticket will expire naturally
+        // Note: We cannot async release in Drop, so the ticket will expire naturally
         // For proper cleanup, users should call release() explicitly
     }
 }

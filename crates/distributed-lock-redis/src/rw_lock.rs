@@ -869,7 +869,7 @@ impl Drop for RedisWriteLockHandle {
     fn drop(&mut self) {
         // Abort extension task
         self.extension_task.abort();
-        // Note: We can't async release in Drop, so the lock will expire naturally
+        // Note: We cannot async release in Drop, so the lock will expire naturally
         // For proper cleanup, users should call release() explicitly
     }
 }

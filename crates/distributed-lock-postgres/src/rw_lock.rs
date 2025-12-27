@@ -115,10 +115,9 @@ impl PostgresDistributedReaderWriterLock {
             // Store transaction using raw pointer to avoid lifetime issues
             // SAFETY: We manually manage the transaction lifetime in the handle
             let transaction_ptr = unsafe {
-                std::mem::transmute::<
-                    Transaction<'_, Postgres>,
-                    Transaction<'static, Postgres>,
-                >(transaction)
+                std::mem::transmute::<Transaction<'_, Postgres>, Transaction<'static, Postgres>>(
+                    transaction,
+                )
             };
             let transaction_ptr = Box::into_raw(Box::new(transaction_ptr));
 
@@ -286,14 +285,14 @@ impl LockHandle for PostgresReadLockHandle {
                     );
                     let _ = sqlx::query(&sql).execute(&mut *conn).await;
                 }
-            PostgresConnectionInner::Transaction(transaction_ptr) => {
-                // SAFETY: We created this pointer and it's still valid
-                let transaction = unsafe { Box::from_raw(transaction_ptr) };
-                if let Err(e) = transaction.rollback().await {
-                    tracing::warn!("Failed to rollback transaction: {}", e);
+                PostgresConnectionInner::Transaction(transaction_ptr) => {
+                    // SAFETY: We created this pointer and it's still valid
+                    let transaction = unsafe { Box::from_raw(transaction_ptr) };
+                    if let Err(e) = transaction.rollback().await {
+                        tracing::warn!("Failed to rollback transaction: {}", e);
+                    }
+                    // Transaction is consumed by rollback(), so no need to drop it
                 }
-                // Transaction is consumed by rollback(), so no need to drop it
-            }
             }
         }
         Ok(())
@@ -339,14 +338,14 @@ impl LockHandle for PostgresWriteLockHandle {
                     let sql = format!("SELECT pg_advisory_unlock({})", self.key.to_sql_args());
                     let _ = sqlx::query(&sql).execute(&mut *conn).await;
                 }
-            PostgresConnectionInner::Transaction(transaction_ptr) => {
-                // SAFETY: We created this pointer and it's still valid
-                let transaction = unsafe { Box::from_raw(transaction_ptr) };
-                if let Err(e) = transaction.rollback().await {
-                    tracing::warn!("Failed to rollback transaction: {}", e);
+                PostgresConnectionInner::Transaction(transaction_ptr) => {
+                    // SAFETY: We created this pointer and it's still valid
+                    let transaction = unsafe { Box::from_raw(transaction_ptr) };
+                    if let Err(e) = transaction.rollback().await {
+                        tracing::warn!("Failed to rollback transaction: {}", e);
+                    }
+                    // Transaction is consumed by rollback(), so no need to drop it
                 }
-                // Transaction is consumed by rollback(), so no need to drop it
-            }
             }
         }
         Ok(())

@@ -81,10 +81,9 @@ impl PostgresDistributedLock {
             // Store transaction using raw pointer to avoid lifetime issues
             // SAFETY: We manually manage the transaction lifetime in the handle
             let transaction_ptr = unsafe {
-                std::mem::transmute::<
-                    Transaction<'_, Postgres>,
-                    Transaction<'static, Postgres>,
-                >(transaction)
+                std::mem::transmute::<Transaction<'_, Postgres>, Transaction<'static, Postgres>>(
+                    transaction,
+                )
             };
             let transaction_ptr = Box::into_raw(Box::new(transaction_ptr));
 
