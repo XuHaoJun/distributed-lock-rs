@@ -67,7 +67,8 @@ use std::time::Duration;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a provider (example: file backend)
     let provider = FileLockProvider::builder()
-        .build("/tmp/locks")?;
+        .directory("/tmp/locks")
+        .build()?;
 
     // Create a lock by name
     let lock = provider.create_lock("my-resource");
