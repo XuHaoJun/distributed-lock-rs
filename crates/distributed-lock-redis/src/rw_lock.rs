@@ -10,11 +10,8 @@ use fred::prelude::*;
 use tokio::sync::watch;
 
 use crate::redlock::{
-    acquire::acquire_redlock,
-    extend::extend_redlock,
-    helper::RedLockHelper,
-    release::release_redlock,
-    timeouts::RedLockTimeouts,
+    acquire::acquire_redlock, extend::extend_redlock, helper::RedLockHelper,
+    release::release_redlock, timeouts::RedLockTimeouts,
 };
 
 /// Internal state for a Redis read lock.
@@ -45,15 +42,12 @@ impl RedisReadLockState {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
         // Check if writer lock exists
-        let writer_exists: bool = client
-            .exists(&self.writer_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis EXISTS failed: {}", e),
-                )))
-            })?;
+        let writer_exists: bool = client.exists(&self.writer_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis EXISTS failed: {}", e),
+            )))
+        })?;
 
         if writer_exists {
             return Ok(false);
@@ -71,15 +65,12 @@ impl RedisReadLockState {
             })?;
 
         // Get current TTL and extend if needed
-        let current_ttl: i64 = client
-            .pttl(&self.reader_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis PTTL failed: {}", e),
-                )))
-            })?;
+        let current_ttl: i64 = client.pttl(&self.reader_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis PTTL failed: {}", e),
+            )))
+        })?;
 
         if current_ttl < expiry_millis {
             let _: bool = client
@@ -116,15 +107,12 @@ impl RedisReadLockState {
         }
 
         // Extend TTL if needed
-        let current_ttl: i64 = client
-            .pttl(&self.reader_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis PTTL failed: {}", e),
-                )))
-            })?;
+        let current_ttl: i64 = client.pttl(&self.reader_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis PTTL failed: {}", e),
+            )))
+        })?;
 
         if current_ttl < expiry_millis {
             let _: bool = client
@@ -192,15 +180,12 @@ impl RedisWriteLockState {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
         // Check current writer value
-        let writer_value: Option<String> = client
-            .get(&self.writer_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis GET failed: {}", e),
-                )))
-            })?;
+        let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis GET failed: {}", e),
+            )))
+        })?;
 
         // If writer exists and it's not our waiting ID, fail
         if let Some(ref value) = writer_value {
@@ -210,15 +195,12 @@ impl RedisWriteLockState {
         }
 
         // Check if there are any readers
-        let reader_count: u32 = client
-            .scard(&self.reader_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis SCARD failed: {}", e),
-                )))
-            })?;
+        let reader_count: u32 = client.scard(&self.reader_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis SCARD failed: {}", e),
+            )))
+        })?;
 
         if reader_count == 0 {
             // No readers - acquire write lock
@@ -277,15 +259,12 @@ impl RedisWriteLockState {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
         // Check if writer lock exists and value matches our lock ID
-        let writer_value: Option<String> = client
-            .get(&self.writer_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis GET failed: {}", e),
-                )))
-            })?;
+        let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis GET failed: {}", e),
+            )))
+        })?;
 
         match writer_value {
             Some(value) if value == self.lock_id => {
@@ -308,28 +287,22 @@ impl RedisWriteLockState {
     /// Attempts to release a write lock on a single Redis client.
     async fn try_release(&self, client: &RedisClient) -> LockResult<()> {
         // Check if writer lock exists and value matches our lock ID
-        let writer_value: Option<String> = client
-            .get(&self.writer_key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis GET failed: {}", e),
-                )))
-            })?;
+        let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis GET failed: {}", e),
+            )))
+        })?;
 
         match writer_value {
             Some(value) if value == self.lock_id => {
                 // Value matches - delete the key
-                let _: i64 = client
-                    .del(&self.writer_key)
-                    .await
-                    .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis DEL failed: {}", e),
-                        )))
-                    })?;
+                let _: i64 = client.del(&self.writer_key).await.map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Redis DEL failed: {}", e),
+                    )))
+                })?;
             }
             _ => {
                 // Lock doesn't exist or value doesn't match - already released or not ours
@@ -396,10 +369,7 @@ impl DistributedReaderWriterLock for RedisDistributedReaderWriterLock {
         self.name()
     }
 
-    async fn acquire_read(
-        &self,
-        timeout: Option<Duration>,
-    ) -> LockResult<Self::ReadHandle> {
+    async fn acquire_read(&self, timeout: Option<Duration>) -> LockResult<Self::ReadHandle> {
         use tokio::sync::watch;
 
         // Create cancellation token
@@ -501,10 +471,7 @@ impl DistributedReaderWriterLock for RedisDistributedReaderWriterLock {
         }
     }
 
-    async fn acquire_write(
-        &self,
-        timeout: Option<Duration>,
-    ) -> LockResult<Self::WriteHandle> {
+    async fn acquire_write(&self, timeout: Option<Duration>) -> LockResult<Self::WriteHandle> {
         use tokio::sync::watch;
 
         // Create cancellation token

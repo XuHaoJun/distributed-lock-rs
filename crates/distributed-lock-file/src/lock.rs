@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::traits::DistributedLock;
 use distributed_lock_core::timeout::TimeoutValue;
+use distributed_lock_core::traits::DistributedLock;
 use tracing::{instrument, Span};
 
 use crate::handle::FileLockHandle;
@@ -62,37 +62,35 @@ impl FileDistributedLock {
 
         // Ensure parent directory exists
         if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                match e.kind() {
-                    ErrorKind::PermissionDenied => {
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::PermissionDenied,
-                            format!(
-                                "permission denied creating lock directory '{}': {}",
-                                parent.display(),
-                                e
-                            ),
-                        )))
-                    }
-                    ErrorKind::OutOfMemory | ErrorKind::StorageFull => {
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::StorageFull,
-                            format!(
-                                "insufficient storage creating lock directory '{}': {}",
-                                parent.display(),
-                                e
-                            ),
-                        )))
-                    }
-                    _ => LockError::Connection(Box::new(std::io::Error::new(
-                        ErrorKind::Other,
+            std::fs::create_dir_all(parent).map_err(|e| match e.kind() {
+                ErrorKind::PermissionDenied => {
+                    LockError::Connection(Box::new(std::io::Error::new(
+                        ErrorKind::PermissionDenied,
                         format!(
-                            "failed to create lock directory '{}': {}",
+                            "permission denied creating lock directory '{}': {}",
                             parent.display(),
                             e
                         ),
-                    ))),
+                    )))
                 }
+                ErrorKind::OutOfMemory | ErrorKind::StorageFull => {
+                    LockError::Connection(Box::new(std::io::Error::new(
+                        ErrorKind::StorageFull,
+                        format!(
+                            "insufficient storage creating lock directory '{}': {}",
+                            parent.display(),
+                            e
+                        ),
+                    )))
+                }
+                _ => LockError::Connection(Box::new(std::io::Error::new(
+                    ErrorKind::Other,
+                    format!(
+                        "failed to create lock directory '{}': {}",
+                        parent.display(),
+                        e
+                    ),
+                ))),
             })?;
         }
 
@@ -227,7 +225,7 @@ impl DistributedLock for FileDistributedLock {
                             Span::current().record("error", "timeout");
                             return Err(LockError::Timeout(timeout_duration));
                         }
-                        
+
                         // Don't sleep longer than remaining timeout
                         let remaining = timeout_duration - elapsed;
                         if sleep_duration > remaining {
@@ -242,19 +240,18 @@ impl DistributedLock for FileDistributedLock {
                         // Use a simple hash of the current time for pseudo-random jitter
                         // This avoids needing a random number generator dependency
                         let nanos = start.elapsed().as_nanos() as u64;
-                        ((nanos % (jitter_range * 2)) as u64)
-                            .saturating_sub(jitter_range)
+                        ((nanos % (jitter_range * 2)) as u64).saturating_sub(jitter_range)
                     } else {
                         0
                     };
-                    
+
                     let sleep_with_jitter = sleep_duration
                         .checked_add(Duration::from_millis(jitter))
                         .unwrap_or(sleep_duration);
 
                     // Sleep before retry
                     tokio::time::sleep(sleep_with_jitter).await;
-                    
+
                     // Exponential backoff: double the sleep duration, but cap at MAX_SLEEP
                     sleep_duration = (sleep_duration * BACKOFF_MULTIPLIER)
                         .min(MAX_SLEEP)

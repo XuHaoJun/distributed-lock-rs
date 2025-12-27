@@ -56,7 +56,9 @@ where
     Fut: std::future::Future<Output = LockResult<bool>> + Send,
 {
     if clients.is_empty() {
-        return Err(LockError::InvalidName("no Redis clients provided".to_string()));
+        return Err(LockError::InvalidName(
+            "no Redis clients provided".to_string(),
+        ));
     }
 
     // Single client case - simpler path

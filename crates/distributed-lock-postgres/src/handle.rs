@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
-use tracing::{instrument, warn};
 use tokio::time::interval;
+use tracing::{instrument, warn};
 
 use distributed_lock_core::error::LockResult;
 use distributed_lock_core::traits::LockHandle;
@@ -39,7 +39,7 @@ impl PostgresLockHandle {
         keepalive_cadence: Option<Duration>,
     ) -> Self {
         let lost_sender_arc = Arc::new(lost_sender);
-        
+
         // Spawn background task to monitor connection health and perform keepalive
         let monitor_pool = match &connection {
             PostgresConnectionInner::Transaction(_) => {
@@ -49,22 +49,22 @@ impl PostgresLockHandle {
             }
             PostgresConnectionInner::Pool(pool) => Some(pool.clone()),
         };
-        
+
         let monitor_sender = lost_sender_arc.clone();
         let keepalive_interval = keepalive_cadence.unwrap_or(Duration::from_secs(30));
-        
+
         let monitor_task = tokio::spawn(async move {
             if let Some(pool) = monitor_pool {
                 // Use keepalive cadence if provided, otherwise default to 30s
                 let mut interval_timer = interval(keepalive_interval);
                 loop {
                     interval_timer.tick().await;
-                    
+
                     // Check if sender is closed (handle dropped)
                     if monitor_sender.is_closed() {
                         break;
                     }
-                    
+
                     // Perform keepalive: get a connection and execute a simple query
                     match pool.get().await {
                         Ok(client) => {
@@ -86,7 +86,7 @@ impl PostgresLockHandle {
                 }
             }
         });
-        
+
         Self {
             _connection: connection,
             lost_receiver,

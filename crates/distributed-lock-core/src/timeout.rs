@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 /// Represents a timeout duration for lock operations.
-/// 
+///
 /// - `Some(duration)` - Wait up to this duration
 /// - `None` - Wait indefinitely
 pub type Timeout = Option<Duration>;
@@ -17,15 +17,15 @@ pub struct TimeoutValue {
 impl TimeoutValue {
     pub const INFINITE: Self = Self { millis: -1 };
     pub const ZERO: Self = Self { millis: 0 };
-    
+
     pub fn is_infinite(&self) -> bool {
         self.millis < 0
     }
-    
+
     pub fn is_zero(&self) -> bool {
         self.millis == 0
     }
-    
+
     pub fn as_duration(&self) -> Option<Duration> {
         if self.is_infinite() {
             None

@@ -40,21 +40,24 @@ impl LockGuard {
     fn new(lock_file: RwLock<std::fs::File>) -> LockResult<Self> {
         // Wrap in Arc first
         let lock_file_arc = Arc::new(lock_file);
-        
+
         // Now acquire the lock guard by getting a mutable reference to the Arc's inner RwLock
         // This is safe because:
         // 1. We just created the Arc, so we're the only owner
         // 2. We'll keep the Arc alive for the lifetime of the guard
         let guard = unsafe {
             // Get a raw pointer to the RwLock inside the Arc
-            let rwlock_ptr = Arc::as_ptr(&lock_file_arc) as *const RwLock<std::fs::File> as *mut RwLock<std::fs::File>;
+            let rwlock_ptr = Arc::as_ptr(&lock_file_arc) as *const RwLock<std::fs::File>
+                as *mut RwLock<std::fs::File>;
             // Try to acquire the lock
             (*rwlock_ptr).try_write()
         }
-        .map_err(|_| LockError::Backend(Box::new(std::io::Error::new(
-            std::io::ErrorKind::WouldBlock,
-            "lock already held",
-        ))))?;
+        .map_err(|_| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "lock already held",
+            )))
+        })?;
 
         // Extend the guard's lifetime to 'static using unsafe
         // This is safe because:
@@ -84,10 +87,7 @@ impl Drop for LockGuard {
 
 impl FileLockHandle {
     /// Creates a new file lock handle by acquiring the lock.
-    pub(crate) fn try_new(
-        lock_file: RwLock<std::fs::File>,
-        path: PathBuf,
-    ) -> LockResult<Self> {
+    pub(crate) fn try_new(lock_file: RwLock<std::fs::File>, path: PathBuf) -> LockResult<Self> {
         let inner = LockGuard::new(lock_file)?;
         let (sender, receiver) = watch::channel(false);
         Ok(Self {

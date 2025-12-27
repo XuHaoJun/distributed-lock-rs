@@ -1,9 +1,9 @@
 //! PostgreSQL backend for distributed locks.
 
-pub mod key;
 pub mod connection;
-pub mod lock;
 pub mod handle;
+pub mod key;
+pub mod lock;
 pub mod provider;
 pub mod rw_lock;
 

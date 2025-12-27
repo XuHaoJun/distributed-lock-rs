@@ -2,6 +2,6 @@
 
 pub use crate::error::{LockError, LockResult};
 pub use crate::traits::{
-    DistributedLock, DistributedReaderWriterLock, DistributedSemaphore, LockHandle,
-    LockProvider, LockProviderExt, ReaderWriterLockProvider, SemaphoreProvider,
+    DistributedLock, DistributedReaderWriterLock, DistributedSemaphore, LockHandle, LockProvider,
+    LockProviderExt, ReaderWriterLockProvider, SemaphoreProvider,
 };

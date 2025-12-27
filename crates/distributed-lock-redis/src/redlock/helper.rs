@@ -36,14 +36,14 @@ impl RedLockHelper {
     pub fn create_lock_id() -> String {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-        
+
         // Get process ID
         let pid = process::id();
-        
+
         // Generate random component
         let mut rng = rand::thread_rng();
         let random: u64 = rng.gen();
-        
+
         format!("{}_{}_{:016x}", pid, counter, random)
     }
 

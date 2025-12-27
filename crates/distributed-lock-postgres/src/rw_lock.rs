@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::traits::{DistributedReaderWriterLock, LockHandle};
 use distributed_lock_core::timeout::TimeoutValue;
+use distributed_lock_core::traits::{DistributedReaderWriterLock, LockHandle};
 use tokio::sync::watch;
 
 use crate::handle::PostgresConnectionInner;
@@ -51,7 +51,10 @@ impl PostgresDistributedReaderWriterLock {
             )))
         })?;
 
-        let sql = format!("SELECT pg_try_advisory_lock_shared({})", self.key.to_sql_args());
+        let sql = format!(
+            "SELECT pg_try_advisory_lock_shared({})",
+            self.key.to_sql_args()
+        );
 
         let row = client.query_one(&sql, &[]).await.map_err(|e| {
             LockError::Backend(Box::new(std::io::Error::new(
@@ -107,7 +110,8 @@ impl PostgresDistributedReaderWriterLock {
             }
 
             // Extend transaction lifetime using unsafe
-            let transaction_ptr = Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
+            let transaction_ptr =
+                Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
             let transaction = unsafe { *Box::from_raw(transaction_ptr) };
 
             let (sender, receiver) = watch::channel(false);

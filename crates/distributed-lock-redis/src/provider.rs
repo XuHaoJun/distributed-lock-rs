@@ -3,9 +3,7 @@
 use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::traits::{
-    LockProvider, ReaderWriterLockProvider, SemaphoreProvider,
-};
+use distributed_lock_core::traits::{LockProvider, ReaderWriterLockProvider, SemaphoreProvider};
 
 use crate::lock::RedisDistributedLock;
 use crate::rw_lock::RedisDistributedReaderWriterLock;
@@ -102,7 +100,9 @@ impl RedisLockProviderBuilder {
         }
 
         if clients.is_empty() {
-            return Err(LockError::InvalidName("no Redis clients or URLs provided".to_string()));
+            return Err(LockError::InvalidName(
+                "no Redis clients or URLs provided".to_string(),
+            ));
         }
 
         Ok(RedisLockProvider {

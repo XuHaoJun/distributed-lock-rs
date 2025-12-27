@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::traits::DistributedLock;
 use distributed_lock_core::timeout::TimeoutValue;
+use distributed_lock_core::traits::DistributedLock;
 use tokio::sync::watch;
 use tracing::{instrument, Span};
 
@@ -83,7 +83,8 @@ impl PostgresDistributedLock {
             }
 
             // Extend transaction lifetime using unsafe (safe because we control it)
-            let transaction_ptr = Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
+            let transaction_ptr =
+                Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
             let transaction = unsafe { *Box::from_raw(transaction_ptr) };
 
             let (sender, receiver) = watch::channel(false);

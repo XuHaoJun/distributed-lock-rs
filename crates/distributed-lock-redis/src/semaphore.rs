@@ -3,8 +3,8 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::traits::{DistributedSemaphore, LockHandle};
 use distributed_lock_core::timeout::TimeoutValue;
+use distributed_lock_core::traits::{DistributedSemaphore, LockHandle};
 use fred::prelude::*;
 use rand::Rng;
 use tokio::sync::watch;
@@ -71,7 +71,7 @@ impl RedisDistributedSemaphore {
 
         // Use Redis commands (non-atomic but simpler for now)
         // TODO: Use Lua script for atomicity when fred API is clarified
-        
+
         // Remove expired entries
         let _: u32 = self
             .client
@@ -85,16 +85,12 @@ impl RedisDistributedSemaphore {
             })?;
 
         // Check current count
-        let count: u32 = self
-            .client
-            .zcard(&self.key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis error: {}", e),
-                )))
-            })?;
+        let count: u32 = self.client.zcard(&self.key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis error: {}", e),
+            )))
+        })?;
 
         if count >= self.max_count {
             return Ok(None);
@@ -103,7 +99,14 @@ impl RedisDistributedSemaphore {
         // Add our ticket
         let _: () = self
             .client
-            .zadd(&self.key, None, None, false, false, (expiry_time as f64, lock_id.clone()))
+            .zadd(
+                &self.key,
+                None,
+                None,
+                false,
+                false,
+                (expiry_time as f64, lock_id.clone()),
+            )
             .await
             .map_err(|e| {
                 LockError::Backend(Box::new(std::io::Error::new(
@@ -250,7 +253,14 @@ impl RedisSemaphoreHandle {
                 // Update our ticket expiry
                 // Note: We use zadd with the same score to update expiry time
                 let result: u32 = match extension_client
-                    .zadd(&extension_key, None, None, false, false, (expiry_time as f64, extension_lock_id.clone()))
+                    .zadd(
+                        &extension_key,
+                        None,
+                        None,
+                        false,
+                        false,
+                        (expiry_time as f64, extension_lock_id.clone()),
+                    )
                     .await
                 {
                     Ok(count) => count,

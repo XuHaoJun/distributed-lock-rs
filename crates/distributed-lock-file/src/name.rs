@@ -1,7 +1,7 @@
 //! File name validation and conversion utilities.
 
-use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha512};
+use std::path::{Path, PathBuf};
 
 use distributed_lock_core::error::{LockError, LockResult};
 
@@ -27,15 +27,15 @@ const BASE32_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 /// - The result is truncated to fit filesystem limits
 pub fn get_lock_file_name(directory: &Path, name: &str) -> LockResult<PathBuf> {
     if name.is_empty() {
-        return Err(LockError::InvalidName("lock name cannot be empty".to_string()));
+        return Err(LockError::InvalidName(
+            "lock name cannot be empty".to_string(),
+        ));
     }
 
     let directory_path = directory
         .canonicalize()
         .or_else(|_| std::fs::create_dir_all(directory).map(|_| directory.to_path_buf()))
-        .map_err(|e| {
-            LockError::InvalidName(format!("failed to create directory: {}", e))
-        })?;
+        .map_err(|e| LockError::InvalidName(format!("failed to create directory: {}", e)))?;
 
     let directory_path_str = directory_path.to_string_lossy();
     let directory_path_with_separator = if directory_path_str.ends_with('/') {
@@ -89,10 +89,7 @@ pub fn get_lock_file_name(directory: &Path, name: &str) -> LockResult<PathBuf> {
 }
 
 fn is_too_long(path: &str) -> bool {
-    Path::new(path)
-        .canonicalize()
-        .is_err()
-        && path.len() > 255 // Conservative check
+    Path::new(path).canonicalize().is_err() && path.len() > 255 // Conservative check
 }
 
 fn convert_to_valid_base_name(name: &str) -> String {

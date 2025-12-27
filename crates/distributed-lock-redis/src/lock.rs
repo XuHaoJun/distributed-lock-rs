@@ -71,15 +71,12 @@ impl RedisLockState {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
         // First check if the key exists and value matches our lock_id
-        let current_value: Option<String> = client
-            .get(&self.key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis GET failed: {}", e),
-                )))
-            })?;
+        let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis GET failed: {}", e),
+            )))
+        })?;
 
         match current_value {
             Some(value) if value == self.lock_id => {
@@ -105,28 +102,22 @@ impl RedisLockState {
     /// TODO: Use Lua script for atomicity once fred API is clarified.
     pub async fn try_release(&self, client: &RedisClient) -> LockResult<()> {
         // First check if the key exists and value matches our lock_id
-        let current_value: Option<String> = client
-            .get(&self.key)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis GET failed: {}", e),
-                )))
-            })?;
+        let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Redis GET failed: {}", e),
+            )))
+        })?;
 
         match current_value {
             Some(value) if value == self.lock_id => {
                 // Value matches - delete the key
-                let _: i64 = client
-                    .del(&self.key)
-                    .await
-                    .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis DEL failed: {}", e),
-                        )))
-                    })?;
+                let _: i64 = client.del(&self.key).await.map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Redis DEL failed: {}", e),
+                    )))
+                })?;
                 Ok(())
             }
             _ => {
@@ -171,7 +162,10 @@ impl RedisDistributedLock {
     /// Gets the lock name.
     pub fn name(&self) -> &str {
         // Extract name from key (remove "distributed-lock:" prefix)
-        self.state.key.strip_prefix("distributed-lock:").unwrap_or(&self.state.key)
+        self.state
+            .key
+            .strip_prefix("distributed-lock:")
+            .unwrap_or(&self.state.key)
     }
 }
 
@@ -183,18 +177,15 @@ impl DistributedLock for RedisDistributedLock {
     }
 
     #[instrument(skip(self), fields(lock.name = %self.name(), lock.key = %self.state.key, timeout = ?timeout, backend = "redis", servers = self.clients.len()))]
-    async fn acquire(
-        &self,
-        timeout: Option<Duration>,
-    ) -> LockResult<Self::Handle> {
+    async fn acquire(&self, timeout: Option<Duration>) -> LockResult<Self::Handle> {
         use tokio::sync::watch;
-        
+
         let start = std::time::Instant::now();
         Span::current().record("operation", "acquire");
-        
+
         // Create cancellation token
         let (cancel_sender, cancel_receiver) = watch::channel(false);
-        
+
         // If timeout is provided, spawn a task to signal cancellation after timeout
         if let Some(timeout_duration) = timeout {
             let cancel_sender_clone = cancel_sender.clone();
@@ -225,7 +216,10 @@ impl DistributedLock for RedisDistributedLock {
                 let elapsed = start.elapsed();
                 Span::current().record("acquired", true);
                 Span::current().record("elapsed_ms", elapsed.as_millis() as u64);
-                Span::current().record("servers_acquired", result.acquire_results.iter().filter(|&&b| b).count());
+                Span::current().record(
+                    "servers_acquired",
+                    result.acquire_results.iter().filter(|&&b| b).count(),
+                );
                 result
             }
             _ => {
@@ -250,9 +244,9 @@ impl DistributedLock for RedisDistributedLock {
     #[instrument(skip(self), fields(lock.name = %self.name(), lock.key = %self.state.key, backend = "redis", servers = self.clients.len()))]
     async fn try_acquire(&self) -> LockResult<Option<Self::Handle>> {
         use tokio::sync::watch;
-        
+
         Span::current().record("operation", "try_acquire");
-        
+
         // Create cancellation token (not used for try_acquire, but required by API)
         let (_cancel_sender, cancel_receiver) = watch::channel(false);
 
@@ -275,7 +269,10 @@ impl DistributedLock for RedisDistributedLock {
         let result = match acquire_result {
             Some(result) if result.is_successful(clients.len()) => {
                 Span::current().record("acquired", true);
-                Span::current().record("servers_acquired", result.acquire_results.iter().filter(|&&b| b).count());
+                Span::current().record(
+                    "servers_acquired",
+                    result.acquire_results.iter().filter(|&&b| b).count(),
+                );
                 Ok(Some(crate::handle::RedisLockHandle::new(
                     self.state.clone(),
                     result.acquire_results,

@@ -38,9 +38,8 @@ impl FileLockProviderBuilder {
             .ok_or_else(|| LockError::InvalidName("directory not specified".to_string()))?;
 
         // Ensure directory exists
-        std::fs::create_dir_all(&directory).map_err(|e| {
-            LockError::InvalidName(format!("failed to create directory: {}", e))
-        })?;
+        std::fs::create_dir_all(&directory)
+            .map_err(|e| LockError::InvalidName(format!("failed to create directory: {}", e)))?;
 
         Ok(FileLockProvider { directory })
     }

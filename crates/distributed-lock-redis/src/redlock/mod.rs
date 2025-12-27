@@ -4,8 +4,8 @@
 
 pub mod acquire;
 pub mod extend;
-pub mod release;
 pub mod helper;
+pub mod release;
 pub mod timeouts;
 
 pub use helper::RedLockHelper;

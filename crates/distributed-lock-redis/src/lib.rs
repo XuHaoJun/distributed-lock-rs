@@ -1,16 +1,14 @@
 //! Redis backend for distributed locks.
 
-pub mod semaphore;
-pub mod provider;
-pub mod lock;
 pub mod handle;
-pub mod rw_lock;
+pub mod lock;
+pub mod provider;
 pub mod redlock;
+pub mod rw_lock;
+pub mod semaphore;
 
-pub use semaphore::{RedisDistributedSemaphore, RedisSemaphoreHandle};
-pub use provider::{RedisLockProvider, RedisLockProviderBuilder};
-pub use lock::RedisDistributedLock;
 pub use handle::RedisLockHandle;
-pub use rw_lock::{
-    RedisDistributedReaderWriterLock, RedisReadLockHandle, RedisWriteLockHandle,
-};
+pub use lock::RedisDistributedLock;
+pub use provider::{RedisLockProvider, RedisLockProviderBuilder};
+pub use rw_lock::{RedisDistributedReaderWriterLock, RedisReadLockHandle, RedisWriteLockHandle};
+pub use semaphore::{RedisDistributedSemaphore, RedisSemaphoreHandle};

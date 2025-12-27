@@ -37,7 +37,9 @@ impl PostgresAdvisoryLockKey {
     /// - Other strings are hashed to i64 (if `allow_hashing` is true)
     pub fn from_name(name: &str, allow_hashing: bool) -> LockResult<Self> {
         if name.is_empty() {
-            return Err(LockError::InvalidName("lock name cannot be empty".to_string()));
+            return Err(LockError::InvalidName(
+                "lock name cannot be empty".to_string(),
+            ));
         }
 
         // Try ASCII encoding first
@@ -101,9 +103,7 @@ impl PostgresAdvisoryLockKey {
             return None;
         }
 
-        i64::from_str_radix(name, 16)
-            .ok()
-            .map(Self::Single)
+        i64::from_str_radix(name, 16).ok().map(Self::Single)
     }
 
     /// Try to parse as pair format "XXXXXXXX,XXXXXXXX".
