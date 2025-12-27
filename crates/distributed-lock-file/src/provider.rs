@@ -39,7 +39,7 @@ impl FileLockProviderBuilder {
 
         // Ensure directory exists
         std::fs::create_dir_all(&directory)
-            .map_err(|e| LockError::InvalidName(format!("failed to create directory: {}", e)))?;
+            .map_err(|e| LockError::InvalidName(format!("failed to create directory: {e}")))?;
 
         Ok(FileLockProvider { directory })
     }

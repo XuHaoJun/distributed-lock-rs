@@ -35,13 +35,13 @@ pub fn get_lock_file_name(directory: &Path, name: &str) -> LockResult<PathBuf> {
     let directory_path = directory
         .canonicalize()
         .or_else(|_| std::fs::create_dir_all(directory).map(|_| directory.to_path_buf()))
-        .map_err(|e| LockError::InvalidName(format!("failed to create directory: {}", e)))?;
+        .map_err(|e| LockError::InvalidName(format!("failed to create directory: {e}")))?;
 
     let directory_path_str = directory_path.to_string_lossy();
     let directory_path_with_separator = if directory_path_str.ends_with('/') {
         directory_path_str.to_string()
     } else {
-        format!("{}/", directory_path_str)
+        format!("{directory_path_str}/")
     };
 
     let base_name = convert_to_valid_base_name(name);
@@ -67,7 +67,7 @@ pub fn get_lock_file_name(directory: &Path, name: &str) -> LockResult<PathBuf> {
     }
 
     // Next, try using just the hash as the name
-    let hash_only_file_name = format!("{}{}", directory_path_with_separator, name_hash);
+    let hash_only_file_name = format!("{directory_path_with_separator}{name_hash}");
     if !is_too_long(&hash_only_file_name) {
         return Ok(PathBuf::from(hash_only_file_name));
     }

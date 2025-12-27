@@ -25,6 +25,8 @@ stack-size-threshold = 512000
 
 too-many-lines-threshold = 200
 
+allow-mixed-uninlined-format-args = true
+
 # -----------------------------------------------------------------------------
 
 # https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_macros
