@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/distributed-lock-core",
+    "crates/distributed-lock-postgres",
+    "crates/distributed-lock-redis",
+    "crates/distributed-lock-file",
+    "crates/distributed-lock",
+]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+thiserror = "1"
+tracing = "0.1"

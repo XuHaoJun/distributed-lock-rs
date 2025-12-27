@@ -1,0 +1,25 @@
+# Clippy configuration for distributed-lock-rs
+avoid-breaking-exported-api = false
+avoid-duplicate-glob-imports = true
+avoid-restricted-idents = true
+avoid-wildcard-imports-except-re-exports = true
+cognitive-complexity-threshold = 30
+doc-valid-idents = ["-", "::"]
+doc-markdown = true
+enum-variant-names-threshold = 3
+enum-clike-unportable = true
+enum-glob-use = true
+enum-variant-size-threshold = 200
+if-not-else = true
+large-enum-variant-ratio = 0.3
+large-stack-frames = 1048576
+large-types-threshold = 200
+max-func-size = 60
+max-struct-size = 200
+max-trait-bounds = 3
+max-tuple-size = 3
+max-vec-size = 16
+msrv = "1.75"
+too-large-for-stack = 256
+verbose-file-reads = true
+verbose-methods = true

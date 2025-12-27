@@ -1,0 +1,27 @@
+[package]
+name = "distributed-lock-file"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "File system backend for distributed locks using OS-level file locking"
+repository = "https://github.com/yourusername/distributed-lock-rs"
+keywords = ["distributed", "lock", "mutex", "file", "filesystem"]
+categories = ["concurrency", "asynchronous"]
+rust-version = "1.75"
+
+[dependencies]
+distributed-lock-core = { path = "../distributed-lock-core" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+fd-lock = "4"
+sha2 = "0.10"
+async-trait = "0.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+tempfile = "3"
+
+[[bench]]
+name = "lock_acquisition"
+harness = false

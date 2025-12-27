@@ -1,0 +1,21 @@
+[package]
+name = "distributed-lock-postgres"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "PostgreSQL backend for distributed locks using advisory locks"
+repository = "https://github.com/yourusername/distributed-lock-rs"
+keywords = ["distributed", "lock", "mutex", "postgres", "postgresql", "database"]
+categories = ["concurrency", "asynchronous", "database"]
+rust-version = "1.75"
+
+[dependencies]
+distributed-lock-core = { path = "../distributed-lock-core" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tokio-postgres = "0.7"
+deadpool-postgres = "0.14"
+sha2 = "0.10"
+
+[dev-dependencies]

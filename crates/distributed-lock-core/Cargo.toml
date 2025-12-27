@@ -1,0 +1,17 @@
+[package]
+name = "distributed-lock-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "Core traits and types for distributed locks"
+repository = "https://github.com/yourusername/distributed-lock-rs"
+keywords = ["distributed", "lock", "mutex", "synchronization", "traits"]
+categories = ["concurrency", "asynchronous"]
+rust-version = "1.75"
+
+[dependencies]
+tokio = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
