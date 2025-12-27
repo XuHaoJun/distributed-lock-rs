@@ -44,11 +44,11 @@ impl PostgresDistributedReaderWriterLock {
 
     /// Attempts to acquire a read lock without waiting.
     async fn try_acquire_read_internal(&self) -> LockResult<Option<PostgresReadLockHandle>> {
-        let mut client = self.pool.get().await.map_err(|e| {
-            LockError::Connection(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to get connection from pool: {}", e),
-            )))
+        let client = self.pool.get().await.map_err(|e| {
+            LockError::Connection(Box::new(std::io::Error::other(format!(
+                "failed to get connection from pool: {}",
+                e
+            ))))
         })?;
 
         let sql = format!(
@@ -57,10 +57,10 @@ impl PostgresDistributedReaderWriterLock {
         );
 
         let row = client.query_one(&sql, &[]).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to acquire read lock: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "failed to acquire read lock: {}",
+                e
+            ))))
         })?;
 
         let acquired: bool = row.get(0);
@@ -80,28 +80,28 @@ impl PostgresDistributedReaderWriterLock {
     /// Attempts to acquire a write lock without waiting.
     async fn try_acquire_write_internal(&self) -> LockResult<Option<PostgresWriteLockHandle>> {
         let mut client = self.pool.get().await.map_err(|e| {
-            LockError::Connection(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to get connection from pool: {}", e),
-            )))
+            LockError::Connection(Box::new(std::io::Error::other(format!(
+                "failed to get connection from pool: {}",
+                e
+            ))))
         })?;
 
         if self.use_transaction {
             // Transaction-scoped lock
             let transaction = client.transaction().await.map_err(|e| {
-                LockError::Connection(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to start transaction: {}", e),
-                )))
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to start transaction: {}",
+                    e
+                ))))
             })?;
 
             let sql = format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args());
 
             let row = transaction.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to acquire write lock: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to acquire write lock: {}",
+                    e
+                ))))
             })?;
 
             let acquired: bool = row.get(0);
@@ -126,10 +126,10 @@ impl PostgresDistributedReaderWriterLock {
             let sql = format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args());
 
             let row = client.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to acquire write lock: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to acquire write lock: {}",
+                    e
+                ))))
             })?;
 
             let acquired: bool = row.get(0);
@@ -169,10 +169,10 @@ impl DistributedReaderWriterLock for PostgresDistributedReaderWriterLock {
                 Ok(Some(handle)) => return Ok(handle),
                 Ok(None) => {
                     // Check timeout
-                    if !timeout_value.is_infinite() {
-                        if start.elapsed() >= timeout_value.as_duration().unwrap() {
-                            return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
-                        }
+                    if !timeout_value.is_infinite()
+                        && start.elapsed() >= timeout_value.as_duration().unwrap()
+                    {
+                        return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
                     }
 
                     // Sleep before retry
@@ -201,10 +201,10 @@ impl DistributedReaderWriterLock for PostgresDistributedReaderWriterLock {
                 Ok(Some(handle)) => return Ok(handle),
                 Ok(None) => {
                     // Check timeout
-                    if !timeout_value.is_infinite() {
-                        if start.elapsed() >= timeout_value.as_duration().unwrap() {
-                            return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
-                        }
+                    if !timeout_value.is_infinite()
+                        && start.elapsed() >= timeout_value.as_duration().unwrap()
+                    {
+                        return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
                     }
 
                     // Sleep before retry

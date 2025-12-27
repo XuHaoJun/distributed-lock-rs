@@ -95,10 +95,13 @@
 pub use distributed_lock_core::*;
 
 // Re-export file backend
+#[allow(ambiguous_glob_reexports)]
 pub use distributed_lock_file::*;
 
 // Re-export postgres backend
+#[allow(ambiguous_glob_reexports)]
 pub use distributed_lock_postgres::*;
 
 // Re-export redis backend
+#[allow(ambiguous_glob_reexports)]
 pub use distributed_lock_redis::*;

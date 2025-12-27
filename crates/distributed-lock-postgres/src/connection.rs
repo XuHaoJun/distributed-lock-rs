@@ -35,10 +35,9 @@ impl PostgresConnection {
         if let Some(dbname) = tokio_config.get_dbname() {
             pg_config.dbname = Some(dbname.to_string());
         }
-        if let Some(host) = tokio_config.get_hosts().first() {
-            if let tokio_postgres::config::Host::Tcp(host_str) = host {
-                pg_config.host = Some(host_str.clone());
-            }
+        if let Some(tokio_postgres::config::Host::Tcp(host_str)) = tokio_config.get_hosts().first()
+        {
+            pg_config.host = Some(host_str.clone());
         }
         if let Some(port) = tokio_config.get_ports().first() {
             pg_config.port = Some(*port);
@@ -49,10 +48,10 @@ impl PostgresConnection {
         pg_config
             .create_pool(Some(Runtime::Tokio1), NoTls)
             .map_err(|e| {
-                LockError::Connection(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to create connection pool: {}", e),
-                )))
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to create connection pool: {}",
+                    e
+                ))))
             })
     }
 

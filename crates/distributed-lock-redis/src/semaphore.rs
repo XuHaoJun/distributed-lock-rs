@@ -78,18 +78,18 @@ impl RedisDistributedSemaphore {
             .zremrangebyscore(&self.key, 0.0, now_millis as f64)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis error: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis error: {}",
+                    e
+                ))))
             })?;
 
         // Check current count
         let count: u32 = self.client.zcard(&self.key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis error: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis error: {}",
+                e
+            ))))
         })?;
 
         if count >= self.max_count {
@@ -109,10 +109,10 @@ impl RedisDistributedSemaphore {
             )
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis error: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis error: {}",
+                    e
+                ))))
             })?;
 
         // Set TTL on the key
@@ -122,10 +122,10 @@ impl RedisDistributedSemaphore {
             .pexpire(&self.key, set_expiry as i64, None)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis error: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis error: {}",
+                    e
+                ))))
             })?;
 
         // Successfully acquired
@@ -166,10 +166,10 @@ impl DistributedSemaphore for RedisDistributedSemaphore {
                 Ok(Some(handle)) => return Ok(handle),
                 Ok(None) => {
                     // Check timeout
-                    if !timeout_value.is_infinite() {
-                        if start.elapsed() >= timeout_value.as_duration().unwrap() {
-                            return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
-                        }
+                    if !timeout_value.is_infinite()
+                        && start.elapsed() >= timeout_value.as_duration().unwrap()
+                    {
+                        return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
                     }
 
                     // Sleep before retry
@@ -195,8 +195,10 @@ pub struct RedisSemaphoreHandle {
     /// Redis client.
     client: RedisClient,
     /// Lock expiry time.
+    #[allow(dead_code)]
     expiry: Duration,
     /// Extension cadence.
+    #[allow(dead_code)]
     extension_cadence: Duration,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,
@@ -218,7 +220,6 @@ impl RedisSemaphoreHandle {
         let extension_lock_id = lock_id.clone();
         let extension_client = client.clone();
         let extension_expiry = expiry;
-        let extension_cadence = extension_cadence;
         let extension_lost_sender = lost_sender.clone();
 
         // Spawn background task to extend the lock
@@ -321,10 +322,10 @@ impl LockHandle for RedisSemaphoreHandle {
             .zrem(&self.key, &self.lock_id)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to release semaphore ticket: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to release semaphore ticket: {}",
+                    e
+                ))))
             })?;
 
         Ok(())

@@ -7,4 +7,3 @@ pub mod traits;
 
 pub use error::{LockError, LockResult};
 pub use prelude::*;
-pub use traits::*;

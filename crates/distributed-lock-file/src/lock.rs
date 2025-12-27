@@ -73,24 +73,19 @@ impl FileDistributedLock {
                         ),
                     )))
                 }
-                ErrorKind::OutOfMemory | ErrorKind::StorageFull => {
-                    LockError::Connection(Box::new(std::io::Error::new(
-                        ErrorKind::StorageFull,
-                        format!(
-                            "insufficient storage creating lock directory '{}': {}",
-                            parent.display(),
-                            e
-                        ),
-                    )))
-                }
-                _ => LockError::Connection(Box::new(std::io::Error::new(
-                    ErrorKind::Other,
+                ErrorKind::OutOfMemory => LockError::Connection(Box::new(std::io::Error::new(
+                    ErrorKind::OutOfMemory,
                     format!(
-                        "failed to create lock directory '{}': {}",
+                        "insufficient storage creating lock directory '{}': {}",
                         parent.display(),
                         e
                     ),
                 ))),
+                _ => LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to create lock directory '{}': {}",
+                    parent.display(),
+                    e
+                )))),
             })?;
         }
 
@@ -99,6 +94,7 @@ impl FileDistributedLock {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&self.path)
             .map_err(|e| {
                 match e.kind() {
@@ -112,9 +108,9 @@ impl FileDistributedLock {
                             ),
                         )))
                     }
-                    ErrorKind::OutOfMemory | ErrorKind::StorageFull => {
+                    ErrorKind::OutOfMemory => {
                         LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::StorageFull,
+                            ErrorKind::OutOfMemory,
                             format!(
                                 "insufficient storage opening lock file '{}': {}",
                                 self.path.display(),
@@ -144,8 +140,7 @@ impl FileDistributedLock {
                             ),
                         )))
                     }
-                    _ => LockError::Connection(Box::new(std::io::Error::new(
-                        ErrorKind::Other,
+                    _ => LockError::Connection(Box::new(std::io::Error::other(
                         format!(
                             "failed to open lock file '{}': {}",
                             self.path.display(),
@@ -172,8 +167,7 @@ impl FileDistributedLock {
                     Ok(None)
                 } else {
                     // Unexpected backend error - wrap with context
-                    Err(LockError::Backend(Box::new(std::io::Error::new(
-                        ErrorKind::Other,
+                    Err(LockError::Backend(Box::new(std::io::Error::other(
                         format!(
                             "failed to acquire lock on file '{}': {}",
                             self.path.display(),
@@ -240,7 +234,7 @@ impl DistributedLock for FileDistributedLock {
                         // Use a simple hash of the current time for pseudo-random jitter
                         // This avoids needing a random number generator dependency
                         let nanos = start.elapsed().as_nanos() as u64;
-                        ((nanos % (jitter_range * 2)) as u64).saturating_sub(jitter_range)
+                        (nanos % (jitter_range * 2)).saturating_sub(jitter_range)
                     } else {
                         0
                     };

@@ -3,18 +3,11 @@
 use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
-use distributed_lock_core::timeout::TimeoutValue;
 use distributed_lock_core::traits::DistributedLock;
 use fred::prelude::*;
 use tracing::{instrument, Span};
 
-use crate::redlock::{
-    acquire::{acquire_redlock, RedLockAcquireResult},
-    extend::extend_redlock,
-    helper::RedLockHelper,
-    release::release_redlock,
-    timeouts::RedLockTimeouts,
-};
+use crate::redlock::{acquire::acquire_redlock, helper::RedLockHelper, timeouts::RedLockTimeouts};
 
 /// Internal state for a Redis lock.
 #[derive(Debug, Clone)]
@@ -53,10 +46,10 @@ impl RedisLockState {
             )
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis SET NX failed: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis SET NX failed: {}",
+                    e
+                ))))
             })?;
 
         // SET NX returns Some(value) if key was set, None if key already exists
@@ -72,10 +65,10 @@ impl RedisLockState {
 
         // First check if the key exists and value matches our lock_id
         let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis GET failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
         })?;
 
         match current_value {
@@ -85,10 +78,10 @@ impl RedisLockState {
                     .pexpire(&self.key, expiry_millis, None)
                     .await
                     .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis PEXPIRE failed: {}", e),
-                        )))
+                        LockError::Backend(Box::new(std::io::Error::other(format!(
+                            "Redis PEXPIRE failed: {}",
+                            e
+                        ))))
                     })?;
                 Ok(true)
             }
@@ -103,20 +96,20 @@ impl RedisLockState {
     pub async fn try_release(&self, client: &RedisClient) -> LockResult<()> {
         // First check if the key exists and value matches our lock_id
         let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis GET failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
         })?;
 
         match current_value {
             Some(value) if value == self.lock_id => {
                 // Value matches - delete the key
                 let _: i64 = client.del(&self.key).await.map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Redis DEL failed: {}", e),
-                    )))
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "Redis DEL failed: {}",
+                        e
+                    ))))
                 })?;
                 Ok(())
             }

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use distributed_lock_core::error::{LockError, LockResult};
+use distributed_lock_core::error::LockResult;
 use distributed_lock_core::traits::LockHandle;
 use fred::prelude::*;
 use tokio::sync::watch;
@@ -24,8 +24,10 @@ pub struct RedisLockHandle {
     /// Redis clients.
     clients: Arc<Vec<RedisClient>>,
     /// Extension cadence.
+    #[allow(dead_code)]
     extension_cadence: Duration,
     /// Lock expiry duration.
+    #[allow(dead_code)]
     expiry: Duration,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,

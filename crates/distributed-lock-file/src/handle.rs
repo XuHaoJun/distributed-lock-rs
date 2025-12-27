@@ -47,8 +47,7 @@ impl LockGuard {
         // 2. We'll keep the Arc alive for the lifetime of the guard
         let guard = unsafe {
             // Get a raw pointer to the RwLock inside the Arc
-            let rwlock_ptr = Arc::as_ptr(&lock_file_arc) as *const RwLock<std::fs::File>
-                as *mut RwLock<std::fs::File>;
+            let rwlock_ptr = Arc::as_ptr(&lock_file_arc) as *mut RwLock<std::fs::File>;
             // Try to acquire the lock
             (*rwlock_ptr).try_write()
         }
@@ -65,7 +64,7 @@ impl LockGuard {
         // 2. We keep lock_file_arc alive for the entire lifetime of LockGuard
         // 3. LockGuard is dropped before lock_file_arc, so the guard is dropped first
         let guard_box = Box::new(guard);
-        let guard_ptr = Box::into_raw(guard_box) as *mut RwLockWriteGuard<'static, std::fs::File>;
+        let guard_ptr = Box::into_raw(guard_box);
         let guard = unsafe { *Box::from_raw(guard_ptr) };
         let guard = std::mem::ManuallyDrop::new(guard);
 

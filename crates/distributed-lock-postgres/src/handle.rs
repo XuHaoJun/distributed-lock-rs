@@ -24,6 +24,7 @@ pub struct PostgresLockHandle {
 }
 
 pub(crate) enum PostgresConnectionInner {
+    #[allow(dead_code)]
     Transaction(Transaction<'static>),
     Pool(Pool),
 }

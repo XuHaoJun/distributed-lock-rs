@@ -90,10 +90,10 @@ impl RedisLockProviderBuilder {
             let client = RedisClient::new(config, None, None, None);
             client.connect();
             client.wait_for_connect().await.map_err(|e| {
-                LockError::Connection(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to connect to Redis: {}", e),
-                )))
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to connect to Redis: {}",
+                    e
+                ))))
             })?;
 
             clients.push(client);

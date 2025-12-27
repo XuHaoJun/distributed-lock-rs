@@ -78,8 +78,7 @@ where
     } else if RedLockHelper::has_too_many_failures_or_faults(fault_count, total_clients) {
         // Too many failures - return error
         if errors.is_empty() {
-            Err(LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(LockError::Backend(Box::new(std::io::Error::other(
                 "failed to release lock on majority of servers",
             ))))
         } else {

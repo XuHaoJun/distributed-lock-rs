@@ -160,6 +160,7 @@ impl PostgresAdvisoryLockKey {
     }
 
     /// Convert to SQL function arguments.
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_sql_args(&self) -> String {
         match self {
             Self::Single(k) => format!("{}", k),

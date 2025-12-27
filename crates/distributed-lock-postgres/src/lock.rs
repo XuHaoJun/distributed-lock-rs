@@ -46,19 +46,19 @@ impl PostgresDistributedLock {
     /// Attempts to acquire the lock without waiting.
     async fn try_acquire_internal(&self) -> LockResult<Option<PostgresLockHandle>> {
         let mut client = self.pool.get().await.map_err(|e| {
-            LockError::Connection(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to get connection from pool: {}", e),
-            )))
+            LockError::Connection(Box::new(std::io::Error::other(format!(
+                "failed to get connection from pool: {}",
+                e
+            ))))
         })?;
 
         if self.use_transaction {
             // Transaction-scoped lock
             let transaction = client.transaction().await.map_err(|e| {
-                LockError::Connection(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to start transaction: {}", e),
-                )))
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to start transaction: {}",
+                    e
+                ))))
             })?;
 
             let sql = match self.key {
@@ -71,10 +71,10 @@ impl PostgresDistributedLock {
             };
 
             let row = transaction.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to acquire lock: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to acquire lock: {}",
+                    e
+                ))))
             })?;
 
             let acquired: bool = row.get(0);
@@ -106,10 +106,10 @@ impl PostgresDistributedLock {
             };
 
             let row = client.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("failed to acquire lock: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to acquire lock: {}",
+                    e
+                ))))
             })?;
 
             let acquired: bool = row.get(0);
@@ -155,12 +155,12 @@ impl DistributedLock for PostgresDistributedLock {
                 }
                 Ok(None) => {
                     // Check timeout
-                    if !timeout_value.is_infinite() {
-                        if start.elapsed() >= timeout_value.as_duration().unwrap() {
-                            Span::current().record("acquired", false);
-                            Span::current().record("error", "timeout");
-                            return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
-                        }
+                    if !timeout_value.is_infinite()
+                        && start.elapsed() >= timeout_value.as_duration().unwrap()
+                    {
+                        Span::current().record("acquired", false);
+                        Span::current().record("error", "timeout");
+                        return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
                     }
 
                     // Sleep before retry

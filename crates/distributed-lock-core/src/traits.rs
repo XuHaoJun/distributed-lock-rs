@@ -3,7 +3,7 @@
 use std::future::Future;
 use std::time::Duration;
 
-use crate::error::{LockError, LockResult};
+use crate::error::LockResult;
 
 // ============================================================================
 // Lock Handle Trait

@@ -154,12 +154,12 @@ fn compute_hash(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    use tempfile::tempdir;
 
     #[test]
     fn test_valid_name() {
-        let dir = env::temp_dir();
-        let result = get_lock_file_name(&dir, "my-lock");
+        let dir = tempdir().unwrap();
+        let result = get_lock_file_name(dir.path(), "my-lock");
         assert!(result.is_ok());
         let path = result.unwrap();
         // The path should contain the base name (possibly truncated) and end with .lock
@@ -170,8 +170,8 @@ mod tests {
 
     #[test]
     fn test_invalid_chars() {
-        let dir = env::temp_dir();
-        let result = get_lock_file_name(&dir, "foo/bar");
+        let dir = tempdir().unwrap();
+        let result = get_lock_file_name(dir.path(), "foo/bar");
         assert!(result.is_ok());
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("foo_bar"));

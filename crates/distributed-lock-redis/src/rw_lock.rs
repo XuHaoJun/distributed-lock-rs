@@ -43,10 +43,10 @@ impl RedisReadLockState {
 
         // Check if writer lock exists
         let writer_exists: bool = client.exists(&self.writer_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis EXISTS failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis EXISTS failed: {}",
+                e
+            ))))
         })?;
 
         if writer_exists {
@@ -58,18 +58,18 @@ impl RedisReadLockState {
             .sadd(&self.reader_key, &self.lock_id)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis SADD failed: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis SADD failed: {}",
+                    e
+                ))))
             })?;
 
         // Get current TTL and extend if needed
         let current_ttl: i64 = client.pttl(&self.reader_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis PTTL failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis PTTL failed: {}",
+                e
+            ))))
         })?;
 
         if current_ttl < expiry_millis {
@@ -77,10 +77,10 @@ impl RedisReadLockState {
                 .pexpire(&self.reader_key, expiry_millis, None)
                 .await
                 .map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Redis PEXPIRE failed: {}", e),
-                    )))
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "Redis PEXPIRE failed: {}",
+                        e
+                    ))))
                 })?;
         }
 
@@ -96,10 +96,10 @@ impl RedisReadLockState {
             .sismember(&self.reader_key, &self.lock_id)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis SISMEMBER failed: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis SISMEMBER failed: {}",
+                    e
+                ))))
             })?;
 
         if !is_member {
@@ -108,10 +108,10 @@ impl RedisReadLockState {
 
         // Extend TTL if needed
         let current_ttl: i64 = client.pttl(&self.reader_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis PTTL failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis PTTL failed: {}",
+                e
+            ))))
         })?;
 
         if current_ttl < expiry_millis {
@@ -119,10 +119,10 @@ impl RedisReadLockState {
                 .pexpire(&self.reader_key, expiry_millis, None)
                 .await
                 .map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Redis PEXPIRE failed: {}", e),
-                    )))
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "Redis PEXPIRE failed: {}",
+                        e
+                    ))))
                 })?;
         }
 
@@ -136,10 +136,10 @@ impl RedisReadLockState {
             .srem(&self.reader_key, &self.lock_id)
             .await
             .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Redis SREM failed: {}", e),
-                )))
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "Redis SREM failed: {}",
+                    e
+                ))))
             })?;
 
         Ok(())
@@ -181,10 +181,10 @@ impl RedisWriteLockState {
 
         // Check current writer value
         let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis GET failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
         })?;
 
         // If writer exists and it's not our waiting ID, fail
@@ -196,10 +196,10 @@ impl RedisWriteLockState {
 
         // Check if there are any readers
         let reader_count: u32 = client.scard(&self.reader_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis SCARD failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis SCARD failed: {}",
+                e
+            ))))
         })?;
 
         if reader_count == 0 {
@@ -214,10 +214,10 @@ impl RedisWriteLockState {
                 )
                 .await
                 .map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Redis SET NX failed: {}", e),
-                    )))
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "Redis SET NX failed: {}",
+                        e
+                    ))))
                 })?;
             Ok(true)
         } else {
@@ -233,10 +233,10 @@ impl RedisWriteLockState {
                     )
                     .await
                     .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis SET NX failed: {}", e),
-                        )))
+                        LockError::Backend(Box::new(std::io::Error::other(format!(
+                            "Redis SET NX failed: {}",
+                            e
+                        ))))
                     })?;
             } else {
                 // Extend waiting lock TTL
@@ -244,10 +244,10 @@ impl RedisWriteLockState {
                     .pexpire(&self.writer_key, expiry_millis, None)
                     .await
                     .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis PEXPIRE failed: {}", e),
-                        )))
+                        LockError::Backend(Box::new(std::io::Error::other(format!(
+                            "Redis PEXPIRE failed: {}",
+                            e
+                        ))))
                     })?;
             }
             Ok(false)
@@ -260,10 +260,10 @@ impl RedisWriteLockState {
 
         // Check if writer lock exists and value matches our lock ID
         let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis GET failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
         })?;
 
         match writer_value {
@@ -273,10 +273,10 @@ impl RedisWriteLockState {
                     .pexpire(&self.writer_key, expiry_millis, None)
                     .await
                     .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Redis PEXPIRE failed: {}", e),
-                        )))
+                        LockError::Backend(Box::new(std::io::Error::other(format!(
+                            "Redis PEXPIRE failed: {}",
+                            e
+                        ))))
                     })?;
                 Ok(true)
             }
@@ -288,20 +288,20 @@ impl RedisWriteLockState {
     async fn try_release(&self, client: &RedisClient) -> LockResult<()> {
         // Check if writer lock exists and value matches our lock ID
         let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Redis GET failed: {}", e),
-            )))
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
         })?;
 
         match writer_value {
             Some(value) if value == self.lock_id => {
                 // Value matches - delete the key
                 let _: i64 = client.del(&self.writer_key).await.map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Redis DEL failed: {}", e),
-                    )))
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "Redis DEL failed: {}",
+                        e
+                    ))))
                 })?;
             }
             _ => {
@@ -502,10 +502,10 @@ impl DistributedReaderWriterLock for RedisDistributedReaderWriterLock {
 
         loop {
             // Check timeout
-            if !timeout_value.is_infinite() {
-                if start.elapsed() >= timeout_value.as_duration().unwrap() {
-                    return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
-                }
+            if !timeout_value.is_infinite()
+                && start.elapsed() >= timeout_value.as_duration().unwrap()
+            {
+                return Err(LockError::Timeout(timeout_value.as_duration().unwrap()));
             }
 
             // Check for cancellation
@@ -603,8 +603,10 @@ pub struct RedisReadLockHandle {
     /// Redis clients.
     clients: Arc<Vec<RedisClient>>,
     /// Extension cadence.
+    #[allow(dead_code)]
     extension_cadence: Duration,
     /// Lock expiry duration.
+    #[allow(dead_code)]
     expiry: Duration,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,
@@ -741,8 +743,10 @@ pub struct RedisWriteLockHandle {
     /// Redis clients.
     clients: Arc<Vec<RedisClient>>,
     /// Extension cadence.
+    #[allow(dead_code)]
     extension_cadence: Duration,
     /// Lock expiry duration.
+    #[allow(dead_code)]
     expiry: Duration,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,
