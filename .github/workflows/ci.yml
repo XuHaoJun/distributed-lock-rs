@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, 1.75.0]
+        rust: [stable, 1.78.0]
     services:
       redis:
         image: valkey/valkey:9.0.1-alpine3.23
@@ -50,6 +50,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
       
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -85,6 +86,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+          components: rustfmt, clippy
       
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
@@ -102,6 +104,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+          components: rustfmt, clippy
       
       - name: Build documentation
         run: cargo doc --no-deps --all-features
