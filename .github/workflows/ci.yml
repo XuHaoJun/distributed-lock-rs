@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, 1.85.0]
+        rust: [stable, 1.88.0]
     services:
       redis:
         image: valkey/valkey:9.0.1-alpine3.23

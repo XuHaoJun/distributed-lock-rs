@@ -3,7 +3,7 @@
 [![CI](https://github.com/yourusername/distributed-lock-rs/workflows/CI/badge.svg)](https://github.com/yourusername/distributed-lock-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/distributed-lock.svg)](https://crates.io/crates/distributed-lock)
 [![Documentation](https://docs.rs/distributed-lock/badge.svg)](https://docs.rs/distributed-lock)
-[![MSRV](https://img.shields.io/badge/rustc-1.85+-blue.svg)](https://www.rust-lang.org)
+[![MSRV](https://img.shields.io/badge/rustc-1.88+-blue.svg)](https://www.rust-lang.org)
 
 Distributed locks for Rust with multiple backend support. This library provides distributed synchronization primitives (mutex locks, reader-writer locks, semaphores) that work across processes and machines.
 
@@ -239,7 +239,7 @@ Each backend implements the same trait interfaces, allowing you to swap backends
 
 ## Requirements
 
-- Rust 1.85 or later
+- Rust 1.88 or later
 - Tokio async runtime (for async operations)
 - Backend-specific requirements:
   - **PostgreSQL**: PostgreSQL 9.5+ with `pg_advisory_lock` support

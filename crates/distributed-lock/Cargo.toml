@@ -9,7 +9,7 @@ repository = "https://github.com/yourusername/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "synchronization", "postgres", "redis", "file"]
 categories = ["concurrency", "asynchronous", "database"]
 readme = "README.md"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [dependencies]
 distributed-lock-core = { path = "../distributed-lock-core" }

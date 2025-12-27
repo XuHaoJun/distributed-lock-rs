@@ -8,7 +8,7 @@ description = "File system backend for distributed locks using OS-level file loc
 repository = "https://github.com/yourusername/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "file", "filesystem"]
 categories = ["concurrency", "asynchronous"]
-rust-version = "1.85"
+rust-version = "1.88"
 
 [dependencies]
 distributed-lock-core = { path = "../distributed-lock-core" }
