@@ -179,21 +179,6 @@ impl RedisWriteLockState {
     async fn try_acquire(&self, client: &RedisClient) -> LockResult<bool> {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
-        // Check current writer value
-        let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::other(format!(
-                "Redis GET failed: {}",
-                e
-            ))))
-        })?;
-
-        // If writer exists and it's not our waiting ID, fail
-        if let Some(ref value) = writer_value {
-            if value != &self.waiting_lock_id {
-                return Ok(false);
-            }
-        }
-
         // Check if there are any readers
         let reader_count: u32 = client.scard(&self.reader_key).await.map_err(|e| {
             LockError::Backend(Box::new(std::io::Error::other(format!(
@@ -202,55 +187,103 @@ impl RedisWriteLockState {
             ))))
         })?;
 
+        // Check current writer value
+        let writer_value: Option<String> = client.get(&self.writer_key).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "Redis GET failed: {}",
+                e
+            ))))
+        })?;
+
+        // Check if we can acquire based on readers and writer state
         if reader_count == 0 {
-            // No readers - acquire write lock
-            let _: Option<String> = client
-                .set(
-                    &self.writer_key,
-                    &self.lock_id,
-                    Some(Expiration::PX(expiry_millis)),
-                    Some(SetOptions::NX),
-                    false,
-                )
-                .await
-                .map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "Redis SET NX failed: {}",
-                        e
-                    ))))
-                })?;
-            Ok(true)
-        } else {
-            // Readers exist - set/update waiting lock if we don't have it yet
-            if writer_value.is_none() {
-                let _: Option<String> = client
-                    .set(
-                        &self.writer_key,
-                        &self.waiting_lock_id,
-                        Some(Expiration::PX(expiry_millis)),
-                        Some(SetOptions::NX),
-                        false,
-                    )
-                    .await
-                    .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::other(format!(
-                            "Redis SET NX failed: {}",
-                            e
-                        ))))
-                    })?;
-            } else {
-                // Extend waiting lock TTL
-                let _: bool = client
-                    .pexpire(&self.writer_key, expiry_millis, None)
-                    .await
-                    .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::other(format!(
-                            "Redis PEXPIRE failed: {}",
-                            e
-                        ))))
-                    })?;
+            // No readers - check writer state
+            match writer_value {
+                Some(value) => {
+                    if value.ends_with(WRITER_WAITING_SUFFIX) {
+                        // Stale waiting ID from previous attempt - overwrite it since no readers exist
+                        let _: Option<String> = client
+                            .set(
+                                &self.writer_key,
+                                &self.lock_id,
+                                Some(Expiration::PX(expiry_millis)),
+                                None, // No NX - overwrite the stale waiting ID
+                                false,
+                            )
+                            .await
+                            .map_err(|e| {
+                                LockError::Backend(Box::new(std::io::Error::other(format!(
+                                    "Redis SET failed: {}",
+                                    e
+                                ))))
+                            })?;
+                        Ok(true)
+                    } else {
+                        // Active write lock exists
+                        Ok(false)
+                    }
+                }
+                None => {
+                    // No writer lock - acquire it
+                    let result: Option<String> = client
+                        .set(
+                            &self.writer_key,
+                            &self.lock_id,
+                            Some(Expiration::PX(expiry_millis)),
+                            Some(SetOptions::NX),
+                            false,
+                        )
+                        .await
+                        .map_err(|e| {
+                            LockError::Backend(Box::new(std::io::Error::other(format!(
+                                "Redis SET NX failed: {}",
+                                e
+                            ))))
+                        })?;
+                    Ok(result.is_some())
+                }
             }
-            Ok(false)
+        } else {
+            // Readers exist - handle waiting lock
+            match writer_value {
+                Some(value) => {
+                    if value == self.waiting_lock_id {
+                        // We have the waiting lock - extend it
+                        let _: bool = client
+                            .pexpire(&self.writer_key, expiry_millis, None)
+                            .await
+                            .map_err(|e| {
+                                LockError::Backend(Box::new(std::io::Error::other(format!(
+                                    "Redis PEXPIRE failed: {}",
+                                    e
+                                ))))
+                            })?;
+                        Ok(false)
+                    } else {
+                        // Someone else has the writer key
+                        Ok(false)
+                    }
+                }
+                None => {
+                    // Set our waiting lock
+                    let _: Option<String> = client
+                        .set(
+                            &self.writer_key,
+                            &self.waiting_lock_id,
+                            Some(Expiration::PX(expiry_millis)),
+                            Some(SetOptions::NX),
+                            false,
+                        )
+                        .await
+                        .map_err(|e| {
+                            LockError::Backend(Box::new(std::io::Error::other(format!(
+                                "Redis SET NX failed: {}",
+                                e
+                            ))))
+                        })?;
+                    Ok(false)
+                }
+            }
         }
     }
 
