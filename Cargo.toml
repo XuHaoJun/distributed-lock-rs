@@ -1,3 +1,21 @@
+[package]
+name = "distributed-lock-workspace"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+distributed-lock = { path = "crates/distributed-lock" }
+distributed-lock-core = { path = "crates/distributed-lock-core" }
+distributed-lock-file = { path = "crates/distributed-lock-file" }
+distributed-lock-postgres = { path = "crates/distributed-lock-postgres" }
+distributed-lock-redis = { path = "crates/distributed-lock-redis" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+criterion = { version = "0.5", features = ["async_tokio"] }
+tempfile = "3"
+
 [workspace]
 resolver = "2"
 members = [

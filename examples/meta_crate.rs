@@ -6,8 +6,6 @@
 //! all backend implementations.
 
 use distributed_lock::*;
-use distributed_lock_core::prelude::*;
-use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,8 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // File backend example
     println!("=== File Backend ===");
     let file_provider = FileLockProvider::builder()
-        .build("/tmp/distributed-locks")?;
-    
+        .directory("/tmp/distributed-locks")
+        .build()?;
+
     let file_lock = file_provider.create_lock("example");
     if let Some(handle) = file_lock.try_acquire().await? {
         println!("File lock acquired");
@@ -43,11 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Redis backend example (if available)
     if let Ok(redis_url) = std::env::var("REDIS_URL") {
         println!("\n=== Redis Backend ===");
-        if let Ok(redis_provider) = RedisLockProvider::builder()
-            .add_server(&redis_url)
-            .build()
-            .await
-        {
+        if let Ok(redis_provider) = RedisLockProvider::builder().url(&redis_url).build().await {
             let redis_lock = redis_provider.create_lock("example");
             if let Some(handle) = redis_lock.try_acquire().await? {
                 println!("Redis lock acquired");

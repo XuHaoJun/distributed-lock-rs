@@ -1,5 +1,7 @@
 //! Mock provider for testing provider abstraction.
 
+#![allow(clippy::disallowed_types, clippy::disallowed_methods)] // Allow std::sync::Mutex and std::env::temp_dir for test mocks
+
 use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::traits::{DistributedLock, LockHandle, LockProvider};
 use std::sync::{Arc, Mutex};
@@ -7,6 +9,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 
 /// Mock lock handle for testing.
+#[allow(dead_code)] // Fields used for trait implementation
 pub struct MockLockHandle {
     name: String,
     held: Arc<Mutex<bool>>,
@@ -27,6 +30,7 @@ impl LockHandle for MockLockHandle {
 }
 
 /// Mock distributed lock for testing.
+#[allow(dead_code)] // Fields used for trait implementation
 pub struct MockDistributedLock {
     name: String,
     held: Arc<Mutex<bool>>,
@@ -42,11 +46,16 @@ impl DistributedLock for MockDistributedLock {
 
     async fn acquire(&self, timeout: Option<Duration>) -> LockResult<Self::Handle> {
         // Check if lock is already held
-        let mut held = self.held.lock().unwrap();
-        if *held {
+        let was_held = {
+            let held = self.held.lock().unwrap();
+            *held
+        };
+
+        if was_held {
             if let Some(timeout) = timeout {
                 tokio::time::sleep(timeout).await;
-                // Still held after timeout
+                // Check again after timeout
+                let held = self.held.lock().unwrap();
                 if *held {
                     return Err(LockError::Timeout(timeout));
                 }
@@ -59,8 +68,13 @@ impl DistributedLock for MockDistributedLock {
             }
         }
 
-        *held = true;
-        let (sender, receiver) = watch::channel(false);
+        // Acquire the lock
+        {
+            let mut held = self.held.lock().unwrap();
+            *held = true;
+        }
+
+        let (_sender, receiver) = watch::channel(false);
         Ok(MockLockHandle {
             name: self.name.clone(),
             held: self.held.clone(),
@@ -75,7 +89,7 @@ impl DistributedLock for MockDistributedLock {
         }
 
         *held = true;
-        let (sender, receiver) = watch::channel(false);
+        let (_sender, receiver) = watch::channel(false);
         Ok(Some(MockLockHandle {
             name: self.name.clone(),
             held: self.held.clone(),
@@ -114,7 +128,7 @@ impl LockProvider for MockLockProvider {
             .or_insert_with(|| Arc::new(Mutex::new(false)))
             .clone();
 
-        let (sender, _) = watch::channel(false);
+        let (sender, _receiver) = watch::channel(false);
         MockDistributedLock {
             name: name.to_string(),
             held,

@@ -5,21 +5,18 @@
 //! Requires a Redis server. Set REDIS_URL environment variable
 //! or modify the URL below.
 
-use distributed_lock_redis::RedisLockProvider;
 use distributed_lock_core::prelude::*;
+use distributed_lock_redis::RedisLockProvider;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get Redis URL from environment or use default
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
     println!("Connecting to Redis...");
-    let provider = RedisLockProvider::builder()
-        .add_server(&redis_url)
-        .build()
-        .await?;
+    let provider = RedisLockProvider::builder().url(&redis_url).build().await?;
 
     println!("Created Redis lock provider");
 
@@ -49,12 +46,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Acquire a ticket (allows up to 5 concurrent operations)
     let ticket = semaphore.acquire(Some(Duration::from_secs(10))).await?;
-    println!("Semaphore ticket acquired ({} max concurrent)", semaphore.max_count());
-    
+    println!(
+        "Semaphore ticket acquired ({} max concurrent)",
+        semaphore.max_count()
+    );
+
     // Do rate-limited work
     println!("Making API call...");
     tokio::time::sleep(Duration::from_secs(1)).await;
-    
+
     // Release the ticket
     ticket.release().await?;
     println!("Semaphore ticket released");

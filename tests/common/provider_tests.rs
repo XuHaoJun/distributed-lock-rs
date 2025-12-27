@@ -4,8 +4,7 @@ use distributed_lock_core::traits::{DistributedLock, LockProvider, LockProviderE
 use distributed_lock_file::FileLockProvider;
 use std::time::Duration;
 
-mod mock_provider;
-use mock_provider::MockLockProvider;
+use super::mock_provider::MockLockProvider;
 
 /// Tests that any provider can be used with the same code.
 async fn test_provider_abstraction<P: LockProvider>(provider: &P)

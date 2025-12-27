@@ -2,15 +2,16 @@
 //!
 //! Run with: `cargo run --example file_lock`
 
-use distributed_lock_file::FileLockProvider;
 use distributed_lock_core::prelude::*;
+use distributed_lock_file::FileLockProvider;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a file lock provider
     let provider = FileLockProvider::builder()
-        .build("/tmp/distributed-locks")?;
+        .directory("/tmp/distributed-locks")
+        .build()?;
 
     println!("Created file lock provider");
 
@@ -22,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match lock.try_acquire().await? {
         Some(handle) => {
             println!("Lock acquired successfully!");
-            
+
             // Do some work while holding the lock
             tokio::time::sleep(Duration::from_secs(2)).await;
             println!("Work completed");
@@ -40,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nAcquiring lock with 5 second timeout...");
     let handle = lock.acquire(Some(Duration::from_secs(5))).await?;
     println!("Lock acquired!");
-    
+
     // Lock is automatically released when handle is dropped
     drop(handle);
     println!("Lock released (via drop)");

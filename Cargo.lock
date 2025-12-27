@@ -384,6 +384,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "distributed-lock-workspace"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "distributed-lock",
+ "distributed-lock-core",
+ "distributed-lock-file",
+ "distributed-lock-postgres",
+ "distributed-lock-redis",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

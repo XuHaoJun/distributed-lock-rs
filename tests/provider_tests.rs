@@ -1,6 +1,8 @@
 //! Tests for provider abstraction.
 
-use distributed_lock_core::traits::{DistributedLock, LockProvider, LockProviderExt};
+#![allow(clippy::disallowed_methods)] // Allow std::env::temp_dir for tests
+
+use distributed_lock_core::traits::{DistributedLock, LockHandle, LockProvider, LockProviderExt};
 use distributed_lock_file::FileLockProvider;
 use std::time::Duration;
 

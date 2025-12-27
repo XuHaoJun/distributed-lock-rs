@@ -1,7 +1,10 @@
 //! Integration tests for Redis-based distributed locks.
 
-use distributed_lock_core::traits::{DistributedLock, DistributedReaderWriterLock, DistributedSemaphore};
-use distributed_lock_redis::{RedisLockProvider, RedisDistributedLock};
+use distributed_lock_core::traits::{
+    DistributedLock, DistributedReaderWriterLock, DistributedSemaphore, LockHandle, LockProvider,
+    ReaderWriterLockProvider, SemaphoreProvider,
+};
+use distributed_lock_redis::RedisLockProvider;
 use std::time::Duration;
 use tokio::time::timeout;
 
@@ -37,6 +40,7 @@ async fn test_exclusive_lock_acquisition() {
 #[ignore] // Requires Redis server running
 async fn test_blocking_acquire() {
     let url = get_redis_url();
+    let url_clone = url.clone();
     let provider = RedisLockProvider::new(url).await.unwrap();
     let lock = provider.create_lock("test-blocking");
 
@@ -44,9 +48,11 @@ async fn test_blocking_acquire() {
     let handle1 = lock.acquire(None).await.unwrap();
 
     // Spawn a task that tries to acquire the same lock
-    let lock_clone = &lock;
+    let lock_name = lock.name().to_string();
     let acquire_task = tokio::spawn(async move {
-        lock_clone.acquire(Some(Duration::from_millis(100))).await
+        let provider2 = RedisLockProvider::new(url_clone).await.unwrap();
+        let lock2 = provider2.create_lock(&lock_name);
+        lock2.acquire(Some(Duration::from_millis(100))).await
     });
 
     // Wait a bit to ensure the task is waiting
@@ -94,7 +100,7 @@ async fn test_lock_expiry() {
     let lock = provider.create_lock("test-expiry");
 
     // Acquire lock
-    let handle1 = lock.acquire(None).await.unwrap();
+    let _handle1 = lock.acquire(None).await.unwrap();
 
     // Wait for lock to expire (longer than expiry time)
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -216,11 +222,9 @@ async fn test_redlock_multiple_servers() {
 #[tokio::test]
 #[ignore] // Requires Redis server running
 async fn test_semaphore_max_count() {
-    use distributed_lock_core::traits::DistributedSemaphore;
-    
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    
+
     // Create a semaphore with max_count=3
     let semaphore = provider.create_semaphore("test-semaphore-max", 3);
     assert_eq!(semaphore.max_count(), 3);
@@ -228,16 +232,19 @@ async fn test_semaphore_max_count() {
     // Should be able to acquire 3 tickets
     let ticket1 = semaphore.try_acquire().await.unwrap();
     assert!(ticket1.is_some());
-    
+
     let ticket2 = semaphore.try_acquire().await.unwrap();
     assert!(ticket2.is_some());
-    
+
     let ticket3 = semaphore.try_acquire().await.unwrap();
     assert!(ticket3.is_some());
 
     // 4th acquisition should fail (max_count reached)
     let ticket4 = semaphore.try_acquire().await.unwrap();
-    assert!(ticket4.is_none(), "Should not acquire 4th ticket when max_count=3");
+    assert!(
+        ticket4.is_none(),
+        "Should not acquire 4th ticket when max_count=3"
+    );
 
     // Release one ticket
     ticket1.unwrap().release().await.unwrap();
@@ -255,12 +262,10 @@ async fn test_semaphore_max_count() {
 #[tokio::test]
 #[ignore] // Requires Redis server running
 async fn test_semaphore_blocking_acquire() {
-    use distributed_lock_core::traits::DistributedSemaphore;
-    use std::time::Duration;
-    
     let url = get_redis_url();
+    let url_clone = url.clone();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    
+
     // Create a semaphore with max_count=2
     let semaphore = provider.create_semaphore("test-semaphore-blocking", 2);
 
@@ -269,9 +274,11 @@ async fn test_semaphore_blocking_acquire() {
     let ticket2 = semaphore.acquire(None).await.unwrap();
 
     // Spawn a task that tries to acquire (should block)
-    let semaphore_clone = &semaphore;
+    let semaphore_name = semaphore.name().to_string();
     let acquire_task = tokio::spawn(async move {
-        semaphore_clone.acquire(Some(Duration::from_millis(200))).await
+        let provider2 = RedisLockProvider::new(url_clone).await.unwrap();
+        let semaphore2 = provider2.create_semaphore(&semaphore_name, 2);
+        semaphore2.acquire(Some(Duration::from_millis(200))).await
     });
 
     // Give the task time to start waiting
@@ -285,8 +292,11 @@ async fn test_semaphore_blocking_acquire() {
         .await
         .unwrap()
         .unwrap();
-    assert!(result.is_ok(), "Waiting task should acquire ticket after release");
-    
+    assert!(
+        result.is_ok(),
+        "Waiting task should acquire ticket after release"
+    );
+
     // Clean up
     ticket2.release().await.unwrap();
     result.unwrap().release().await.unwrap();
@@ -295,11 +305,9 @@ async fn test_semaphore_blocking_acquire() {
 #[tokio::test]
 #[ignore] // Requires Redis server running
 async fn test_semaphore_timeout() {
-    use distributed_lock_core::traits::DistributedSemaphore;
-    
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    
+
     // Create a semaphore with max_count=1
     let semaphore = provider.create_semaphore("test-semaphore-timeout", 1);
 
@@ -309,7 +317,7 @@ async fn test_semaphore_timeout() {
     // Try to acquire with short timeout - should timeout
     let result = semaphore.acquire(Some(Duration::from_millis(50))).await;
     assert!(result.is_err(), "Should timeout when semaphore is full");
-    
+
     if let Err(e) = result {
         assert!(format!("{:?}", e).contains("timeout") || format!("{:?}", e).contains("Timeout"));
     }
@@ -321,11 +329,9 @@ async fn test_semaphore_timeout() {
 #[tokio::test]
 #[ignore] // Requires Redis server running
 async fn test_semaphore_release_on_drop() {
-    use distributed_lock_core::traits::DistributedSemaphore;
-    
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    
+
     // Create a semaphore with max_count=1
     let semaphore = provider.create_semaphore("test-semaphore-drop", 1);
 
@@ -337,7 +343,10 @@ async fn test_semaphore_release_on_drop() {
 
     // Semaphore should now be available
     let ticket2 = semaphore.try_acquire().await.unwrap();
-    assert!(ticket2.is_some(), "Semaphore should be available after ticket drop");
-    
+    assert!(
+        ticket2.is_some(),
+        "Semaphore should be available after ticket drop"
+    );
+
     ticket2.unwrap().release().await.unwrap();
 }

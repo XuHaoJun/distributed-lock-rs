@@ -5,15 +5,16 @@
 //! Requires a PostgreSQL database. Set POSTGRES_URL environment variable
 //! or modify the connection string below.
 
-use distributed_lock_postgres::PostgresLockProvider;
 use distributed_lock_core::prelude::*;
+use distributed_lock_postgres::PostgresLockProvider;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get connection string from environment or use default
-    let connection_string = std::env::var("POSTGRES_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost/distributed_lock_test".to_string());
+    let connection_string = std::env::var("POSTGRES_URL").unwrap_or_else(|_| {
+        "postgresql://postgres:postgres@localhost/distributed_lock_test".to_string()
+    });
 
     println!("Connecting to PostgreSQL...");
     let provider = PostgresLockProvider::builder()
