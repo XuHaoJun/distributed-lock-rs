@@ -10,6 +10,9 @@ keywords = ["distributed", "lock", "mutex", "synchronization", "traits"]
 categories = ["concurrency", "asynchronous"]
 rust-version = "1.88"
 
+[lints.clippy]
+uninlined_format_args = "allow"
+
 [dependencies]
 tokio = { workspace = true }
 thiserror = { workspace = true }

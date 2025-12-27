@@ -10,6 +10,9 @@ keywords = ["distributed", "lock", "mutex", "redis", "redlock", "semaphore"]
 categories = ["concurrency", "asynchronous", "database"]
 rust-version = "1.88"
 
+[lints.clippy]
+uninlined_format_args = "allow"
+
 [dependencies]
 distributed-lock-core = { path = "../distributed-lock-core" }
 tokio = { workspace = true }

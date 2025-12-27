@@ -11,6 +11,9 @@ categories = ["concurrency", "asynchronous", "database"]
 readme = "README.md"
 rust-version = "1.88"
 
+[lints.clippy]
+uninlined_format_args = "allow"
+
 [dependencies]
 distributed-lock-core = { path = "../distributed-lock-core" }
 distributed-lock-postgres = { path = "../distributed-lock-postgres" }

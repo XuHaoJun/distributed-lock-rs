@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[lints.clippy]
+uninlined_format_args = "allow"
+
 [dependencies]
 distributed-lock = { path = "crates/distributed-lock" }
 distributed-lock-core = { path = "crates/distributed-lock-core" }
