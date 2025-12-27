@@ -14,8 +14,16 @@ async fn test_provider_abstraction<P: LockProvider>(provider: &P)
 where
     P::Lock: DistributedLock,
 {
+    test_provider_abstraction_with_name(provider, "test-resource").await;
+}
+
+/// Tests that any provider can be used with the same code (with custom name).
+async fn test_provider_abstraction_with_name<P: LockProvider>(provider: &P, name: &str)
+where
+    P::Lock: DistributedLock,
+{
     // Create a lock using the provider
-    let lock = provider.create_lock("test-resource");
+    let lock = provider.create_lock(name);
 
     // Try to acquire the lock
     let handle = lock.try_acquire().await.unwrap();
@@ -34,14 +42,24 @@ async fn test_provider_extensions<P: LockProvider + LockProviderExt>(provider: &
 where
     P::Lock: DistributedLock,
 {
+    test_provider_extensions_with_name(provider, "test-resource").await;
+}
+
+/// Tests provider extension methods work with any provider (with custom name).
+async fn test_provider_extensions_with_name<P: LockProvider + LockProviderExt>(
+    provider: &P,
+    name: &str,
+) where
+    P::Lock: DistributedLock,
+{
     // Test acquire_lock extension method
     let handle = provider
-        .acquire_lock("test-resource", Some(Duration::from_millis(100)))
+        .acquire_lock(name, Some(Duration::from_millis(100)))
         .await;
     assert!(handle.is_ok());
 
     // Test try_acquire_lock extension method
-    let handle2 = provider.try_acquire_lock("test-resource").await.unwrap();
+    let handle2 = provider.try_acquire_lock(name).await.unwrap();
     // Should be None because lock is held
     assert!(handle2.is_none());
 }
@@ -50,7 +68,7 @@ where
 async fn test_file_provider_abstraction() {
     let temp_dir = std::env::temp_dir();
     let provider = FileLockProvider::new(temp_dir).unwrap();
-    test_provider_abstraction(&provider).await;
+    test_provider_abstraction_with_name(&provider, "test-resource-abstraction").await;
 }
 
 #[tokio::test]
@@ -63,7 +81,7 @@ async fn test_mock_provider_abstraction() {
 async fn test_file_provider_extensions() {
     let temp_dir = std::env::temp_dir();
     let provider = FileLockProvider::new(temp_dir).unwrap();
-    test_provider_extensions(&provider).await;
+    test_provider_extensions_with_name(&provider, "test-resource-extensions").await;
 }
 
 #[tokio::test]
