@@ -46,8 +46,7 @@ impl PostgresDistributedReaderWriterLock {
     async fn try_acquire_read_internal(&self) -> LockResult<Option<PostgresReadLockHandle>> {
         let mut connection = self.pool.acquire().await.map_err(|e| {
             LockError::Connection(Box::new(std::io::Error::other(format!(
-                "failed to get connection from pool: {}",
-                e
+                "failed to get connection from pool: {e}"
             ))))
         })?;
 
@@ -61,8 +60,7 @@ impl PostgresDistributedReaderWriterLock {
             .await
             .map_err(|e| {
                 LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to acquire read lock: {}",
-                    e
+                    "failed to acquire read lock: {e}"
                 ))))
             })?;
 
@@ -90,8 +88,7 @@ impl PostgresDistributedReaderWriterLock {
             // Transaction-scoped lock
             let mut transaction = self.pool.begin().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
-                    "failed to start transaction: {}",
-                    e
+                    "failed to start transaction: {e}"
                 ))))
             })?;
 
@@ -102,8 +99,7 @@ impl PostgresDistributedReaderWriterLock {
                 .await
                 .map_err(|e| {
                     LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "failed to acquire write lock: {}",
-                        e
+                        "failed to acquire write lock: {e}"
                     ))))
                 })?;
 
@@ -133,8 +129,7 @@ impl PostgresDistributedReaderWriterLock {
             // Session-scoped lock
             let mut connection = self.pool.acquire().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
-                    "failed to get connection from pool: {}",
-                    e
+                    "failed to get connection from pool: {e}"
                 ))))
             })?;
 
@@ -145,8 +140,7 @@ impl PostgresDistributedReaderWriterLock {
                 .await
                 .map_err(|e| {
                     LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "failed to acquire write lock: {}",
-                        e
+                        "failed to acquire write lock: {e}"
                     ))))
                 })?;
 

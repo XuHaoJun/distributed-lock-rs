@@ -49,8 +49,7 @@ impl PostgresDistributedLock {
             // Transaction-scoped lock
             let mut transaction = self.pool.begin().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
-                    "failed to start transaction: {}",
-                    e
+                    "failed to start transaction: {e}"
                 ))))
             })?;
 
@@ -68,8 +67,7 @@ impl PostgresDistributedLock {
                 .await
                 .map_err(|e| {
                     LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "failed to acquire lock: {}",
-                        e
+                        "failed to acquire lock: {e}"
                     ))))
                 })?;
 
@@ -99,8 +97,7 @@ impl PostgresDistributedLock {
             // Session-scoped lock
             let mut connection = self.pool.acquire().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
-                    "failed to get connection from pool: {}",
-                    e
+                    "failed to get connection from pool: {e}"
                 ))))
             })?;
 
@@ -118,8 +115,7 @@ impl PostgresDistributedLock {
                 .await
                 .map_err(|e| {
                     LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "failed to acquire lock: {}",
-                        e
+                        "failed to acquire lock: {e}"
                     ))))
                 })?;
 

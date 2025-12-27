@@ -163,8 +163,8 @@ impl PostgresAdvisoryLockKey {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_sql_args(&self) -> String {
         match self {
-            Self::Single(k) => format!("{}", k),
-            Self::Pair(k1, k2) => format!("{}, {}", k1, k2),
+            Self::Single(k) => format!("{k}"),
+            Self::Pair(k1, k2) => format!("{k1}, {k2}"),
         }
     }
 }

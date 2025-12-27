@@ -17,8 +17,7 @@ impl PostgresConnection {
     pub async fn create_pool(connection_string: &str) -> LockResult<PgPool> {
         sqlx::PgPool::connect(connection_string).await.map_err(|e| {
             LockError::Connection(Box::new(std::io::Error::other(format!(
-                "failed to create connection pool: {}",
-                e
+                "failed to create connection pool: {e}"
             ))))
         })
     }
