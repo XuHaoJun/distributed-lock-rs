@@ -4,7 +4,7 @@ Auto-generated from all feature plans. Last updated: 2025-12-27
 
 ## Active Technologies
 
-- Rust 1.83+ (stable, 2024 edition) (001-port-distributed-lock)
+- Rust 1.85+ (stable, 2024 edition) (001-port-distributed-lock)
 
 ## Project Structure
 
@@ -19,11 +19,11 @@ cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECH
 
 ## Code Style
 
-Rust 1.83+ (stable, 2024 edition): Follow standard conventions
+Rust 1.85+ (stable, 2024 edition): Follow standard conventions
 
 ## Recent Changes
 
-- 001-port-distributed-lock: Added Rust 1.83+ (stable, 2024 edition)
+- 001-port-distributed-lock: Added Rust 1.85+ (stable, 2024 edition)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

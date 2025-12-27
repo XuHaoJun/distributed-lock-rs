@@ -326,7 +326,7 @@ Phase 11: Polish & Cross-Cutting
 - [X] T108 Create examples directory with usage examples
 - [X] T109 Prepare crates.io metadata (description, keywords, license)
 - [X] T110 Run full test suite and fix any issues
-- [X] T111 Verify MSRV 1.83 compatibility
+- [X] T111 Verify MSRV 1.85 compatibility
 
 ---
 

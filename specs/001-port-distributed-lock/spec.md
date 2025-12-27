@@ -13,7 +13,7 @@
 - Q: How should TLS/SSL be handled for Postgres/Redis connections? → A: Support TLS via connection config; document as recommended for production
 - Q: What is the maximum acceptable lock acquisition overhead? → A: <10ms beyond backend latency
 - Q: What queuing discipline for lock waiters? → A: FIFO (first-in-first-out) - waiters served in request order
-- Q: What is the minimum supported Rust version (MSRV)? → A: MSRV 1.83 - enables native async traits
+- Q: What is the minimum supported Rust version (MSRV)? → A: MSRV 1.85 - enables native async traits
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -201,7 +201,7 @@ A developer needs distributed locking on a single machine or shared filesystem w
 ## Assumptions
 
 - Users have access to the backend infrastructure they choose (Postgres server, Redis server, or writable filesystem).
-- Rust's async ecosystem (tokio or async-std) is used for async operations; tokio is the primary target runtime. Minimum supported Rust version (MSRV) is 1.83, enabling native async traits without the async-trait crate workaround.
+- Rust's async ecosystem (tokio or async-std) is used for async operations; tokio is the primary target runtime. Minimum supported Rust version (MSRV) is 1.85, enabling native async traits without the async-trait crate workaround.
 - The library will follow Rust idioms (traits, RAII, Result types) rather than directly translating C# patterns.
 - Connection pooling for database backends will leverage existing Rust crates (e.g., `deadpool`, `bb8`) rather than reimplementing.
 - The library will be published as a Cargo crate (or workspace of crates) following the modular structure of the C# library.
