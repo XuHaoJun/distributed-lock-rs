@@ -133,7 +133,7 @@ impl PostgresDistributedLock {
 
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresLockHandle::new(
-                crate::handle::PostgresConnectionInner::Connection(connection),
+                crate::handle::PostgresConnectionInner::Connection(Box::new(connection)),
                 self.key,
                 sender,
                 receiver,

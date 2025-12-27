@@ -76,7 +76,7 @@ impl PostgresDistributedReaderWriterLock {
 
         let (sender, receiver) = watch::channel(false);
         Ok(Some(PostgresReadLockHandle::new(
-            PostgresConnectionInner::Connection(connection),
+            PostgresConnectionInner::Connection(Box::new(connection)),
             self.key,
             sender,
             receiver,
@@ -160,7 +160,7 @@ impl PostgresDistributedReaderWriterLock {
 
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresWriteLockHandle::new(
-                PostgresConnectionInner::Connection(connection),
+                PostgresConnectionInner::Connection(Box::new(connection)),
                 self.key,
                 sender,
                 receiver,
@@ -283,7 +283,7 @@ impl LockHandle for PostgresReadLockHandle {
                         "SELECT pg_advisory_unlock_shared({})",
                         self.key.to_sql_args()
                     );
-                    let _ = sqlx::query(&sql).execute(&mut *conn).await;
+                    let _ = sqlx::query(&sql).execute(&mut **conn).await;
                 }
                 PostgresConnectionInner::Transaction(transaction_ptr) => {
                     // SAFETY: We created this pointer and it's still valid
@@ -336,7 +336,7 @@ impl LockHandle for PostgresWriteLockHandle {
             match connection {
                 PostgresConnectionInner::Connection(mut conn) => {
                     let sql = format!("SELECT pg_advisory_unlock({})", self.key.to_sql_args());
-                    let _ = sqlx::query(&sql).execute(&mut *conn).await;
+                    let _ = sqlx::query(&sql).execute(&mut **conn).await;
                 }
                 PostgresConnectionInner::Transaction(transaction_ptr) => {
                     // SAFETY: We created this pointer and it's still valid

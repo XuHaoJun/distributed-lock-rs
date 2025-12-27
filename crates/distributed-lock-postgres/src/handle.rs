@@ -28,7 +28,7 @@ pub(crate) enum PostgresConnectionInner {
     /// Using raw pointer to avoid lifetime issues - we manage the transaction manually
     Transaction(*mut Transaction<'static, Postgres>),
     /// Session-scoped lock: stores pool connection
-    Connection(PoolConnection<Postgres>),
+    Connection(Box<PoolConnection<Postgres>>),
 }
 
 unsafe impl Send for PostgresConnectionInner {}
@@ -77,7 +77,7 @@ impl LockHandle for PostgresLockHandle {
                 PostgresConnectionInner::Connection(mut conn) => {
                     // Release session-scoped lock explicitly
                     let sql = format!("SELECT pg_advisory_unlock({})", key.to_sql_args());
-                    let _ = sqlx::query(&sql).execute(&mut *conn).await;
+                    let _ = sqlx::query(&sql).execute(&mut **conn).await;
                 }
                 PostgresConnectionInner::Transaction(transaction_ptr) => {
                     // SAFETY: We created this pointer and it's still valid
