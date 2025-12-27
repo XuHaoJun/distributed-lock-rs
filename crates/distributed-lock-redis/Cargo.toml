@@ -8,7 +8,7 @@ description = "Redis backend for distributed locks with RedLock algorithm suppor
 repository = "https://github.com/yourusername/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "redis", "redlock", "semaphore"]
 categories = ["concurrency", "asynchronous", "database"]
-rust-version = "1.75"
+rust-version = "1.83"
 
 [dependencies]
 distributed-lock-core = { path = "../distributed-lock-core" }

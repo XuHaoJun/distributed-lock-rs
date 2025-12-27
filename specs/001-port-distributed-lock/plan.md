@@ -15,7 +15,7 @@ Port the DistributedLock C# library to Rust, providing distributed synchronizati
 
 ## Technical Context
 
-**Language/Version**: Rust 1.75+ (stable, 2024 edition)  
+**Language/Version**: Rust 1.83+ (stable, 2024 edition)  
 **Primary Dependencies**:
 - `tokio` 1.x (async runtime)
 - `tokio-postgres` 0.7.x + `deadpool-postgres` 0.14.x (Postgres backend)
