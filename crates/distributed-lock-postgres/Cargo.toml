@@ -14,8 +14,7 @@ rust-version = "1.83"
 distributed-lock-core = { path = "../distributed-lock-core" }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tokio-postgres = "0.7"
-deadpool-postgres = "0.14"
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls"] }
 sha2 = "0.10"
 
 [dev-dependencies]

@@ -9,7 +9,7 @@ use crate::connection::PostgresConnection;
 use crate::key::PostgresAdvisoryLockKey;
 use crate::lock::PostgresDistributedLock;
 use crate::rw_lock::PostgresDistributedReaderWriterLock;
-use deadpool_postgres::Pool;
+use sqlx::PgPool;
 
 /// Builder for PostgreSQL lock provider configuration.
 pub struct PostgresLockProviderBuilder {
@@ -35,7 +35,7 @@ impl PostgresLockProviderBuilder {
     }
 
     /// Sets an existing connection pool.
-    pub fn pool(mut self, pool: Pool) -> Self {
+    pub fn pool(mut self, pool: PgPool) -> Self {
         self.connection = Some(PostgresConnection::Pool(pool));
         self
     }
@@ -76,7 +76,7 @@ impl Default for PostgresLockProviderBuilder {
 
 /// Provider for PostgreSQL-based distributed locks.
 pub struct PostgresLockProvider {
-    pool: Pool,
+    pool: PgPool,
     use_transaction: bool,
     keepalive_cadence: Option<Duration>,
 }

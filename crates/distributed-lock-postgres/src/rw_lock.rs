@@ -9,7 +9,7 @@ use tokio::sync::watch;
 
 use crate::handle::PostgresConnectionInner;
 use crate::key::PostgresAdvisoryLockKey;
-use deadpool_postgres::Pool;
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
 /// A PostgreSQL-based distributed reader-writer lock.
 pub struct PostgresDistributedReaderWriterLock {
@@ -18,7 +18,7 @@ pub struct PostgresDistributedReaderWriterLock {
     /// Original lock name.
     name: String,
     /// Connection pool.
-    pool: Pool,
+    pool: PgPool,
     /// Whether to use transaction-scoped locks.
     use_transaction: bool,
     /// Keepalive cadence for long-held locks.
@@ -29,7 +29,7 @@ impl PostgresDistributedReaderWriterLock {
     pub(crate) fn new(
         name: String,
         key: PostgresAdvisoryLockKey,
-        pool: Pool,
+        pool: PgPool,
         use_transaction: bool,
         keepalive_cadence: Option<Duration>,
     ) -> Self {
@@ -44,7 +44,7 @@ impl PostgresDistributedReaderWriterLock {
 
     /// Attempts to acquire a read lock without waiting.
     async fn try_acquire_read_internal(&self) -> LockResult<Option<PostgresReadLockHandle>> {
-        let client = self.pool.get().await.map_err(|e| {
+        let mut connection = self.pool.acquire().await.map_err(|e| {
             LockError::Connection(Box::new(std::io::Error::other(format!(
                 "failed to get connection from pool: {}",
                 e
@@ -56,21 +56,28 @@ impl PostgresDistributedReaderWriterLock {
             self.key.to_sql_args()
         );
 
-        let row = client.query_one(&sql, &[]).await.map_err(|e| {
-            LockError::Backend(Box::new(std::io::Error::other(format!(
-                "failed to acquire read lock: {}",
-                e
-            ))))
-        })?;
+        let row = sqlx::query(&sql)
+            .fetch_one(&mut *connection)
+            .await
+            .map_err(|e| {
+                LockError::Backend(Box::new(std::io::Error::other(format!(
+                    "failed to acquire read lock: {}",
+                    e
+                ))))
+            })?;
 
         let acquired: bool = row.get(0);
         if !acquired {
             return Ok(None);
         }
 
+        // Store pool connection to keep it alive
+        // PoolConnection will be returned to pool when dropped
+
         let (sender, receiver) = watch::channel(false);
         Ok(Some(PostgresReadLockHandle::new(
-            PostgresConnectionInner::Pool(self.pool.clone()),
+            PostgresConnectionInner::Connection(connection),
+            self.key,
             sender,
             receiver,
             self.keepalive_cadence,
@@ -79,16 +86,9 @@ impl PostgresDistributedReaderWriterLock {
 
     /// Attempts to acquire a write lock without waiting.
     async fn try_acquire_write_internal(&self) -> LockResult<Option<PostgresWriteLockHandle>> {
-        let mut client = self.pool.get().await.map_err(|e| {
-            LockError::Connection(Box::new(std::io::Error::other(format!(
-                "failed to get connection from pool: {}",
-                e
-            ))))
-        })?;
-
         if self.use_transaction {
             // Transaction-scoped lock
-            let transaction = client.transaction().await.map_err(|e| {
+            let mut transaction = self.pool.begin().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
                     "failed to start transaction: {}",
                     e
@@ -97,49 +97,72 @@ impl PostgresDistributedReaderWriterLock {
 
             let sql = format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args());
 
-            let row = transaction.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to acquire write lock: {}",
-                    e
-                ))))
-            })?;
+            let row = sqlx::query(&sql)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "failed to acquire write lock: {}",
+                        e
+                    ))))
+                })?;
 
             let acquired: bool = row.get(0);
             if !acquired {
                 return Ok(None);
             }
 
-            // Extend transaction lifetime using unsafe
-            let transaction_ptr =
-                Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
-            let transaction = unsafe { *Box::from_raw(transaction_ptr) };
+            // Store transaction using raw pointer to avoid lifetime issues
+            // SAFETY: We manually manage the transaction lifetime in the handle
+            let transaction_ptr = unsafe {
+                std::mem::transmute::<
+                    Transaction<'_, Postgres>,
+                    Transaction<'static, Postgres>,
+                >(transaction)
+            };
+            let transaction_ptr = Box::into_raw(Box::new(transaction_ptr));
 
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresWriteLockHandle::new(
-                PostgresConnectionInner::Transaction(transaction),
+                PostgresConnectionInner::Transaction(transaction_ptr),
+                self.key,
                 sender,
                 receiver,
                 self.keepalive_cadence,
             )))
         } else {
             // Session-scoped lock
-            let sql = format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args());
-
-            let row = client.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to acquire write lock: {}",
+            let mut connection = self.pool.acquire().await.map_err(|e| {
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to get connection from pool: {}",
                     e
                 ))))
             })?;
+
+            let sql = format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args());
+
+            let row = sqlx::query(&sql)
+                .fetch_one(&mut *connection)
+                .await
+                .map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "failed to acquire write lock: {}",
+                        e
+                    ))))
+                })?;
 
             let acquired: bool = row.get(0);
             if !acquired {
                 return Ok(None);
             }
 
+            // Store pool connection to keep it alive
+            // PoolConnection will be returned to pool when dropped
+
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresWriteLockHandle::new(
-                PostgresConnectionInner::Pool(self.pool.clone()),
+                PostgresConnectionInner::Connection(connection),
+                self.key,
                 sender,
                 receiver,
                 self.keepalive_cadence,
@@ -224,7 +247,9 @@ impl DistributedReaderWriterLock for PostgresDistributedReaderWriterLock {
 /// Handle for a held PostgreSQL read lock.
 pub struct PostgresReadLockHandle {
     /// The database connection (when dropped, the lock is released).
-    _connection: PostgresConnectionInner,
+    _connection: Option<PostgresConnectionInner>,
+    /// The lock key for explicit unlock.
+    key: PostgresAdvisoryLockKey,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,
 }
@@ -232,12 +257,14 @@ pub struct PostgresReadLockHandle {
 impl PostgresReadLockHandle {
     pub(crate) fn new(
         connection: PostgresConnectionInner,
+        key: PostgresAdvisoryLockKey,
         _lost_sender: watch::Sender<bool>,
         lost_receiver: watch::Receiver<bool>,
         _keepalive_cadence: Option<Duration>,
     ) -> Self {
         Self {
-            _connection: connection,
+            _connection: Some(connection),
+            key,
             lost_receiver,
         }
     }
@@ -248,9 +275,27 @@ impl LockHandle for PostgresReadLockHandle {
         &self.lost_receiver
     }
 
-    async fn release(self) -> LockResult<()> {
-        // Release the shared lock
-        drop(self._connection);
+    async fn release(mut self) -> LockResult<()> {
+        // Explicitly release the shared lock before dropping the connection
+        if let Some(connection) = self._connection.take() {
+            match connection {
+                PostgresConnectionInner::Connection(mut conn) => {
+                    let sql = format!(
+                        "SELECT pg_advisory_unlock_shared({})",
+                        self.key.to_sql_args()
+                    );
+                    let _ = sqlx::query(&sql).execute(&mut *conn).await;
+                }
+            PostgresConnectionInner::Transaction(transaction_ptr) => {
+                // SAFETY: We created this pointer and it's still valid
+                let transaction = unsafe { Box::from_raw(transaction_ptr) };
+                if let Err(e) = transaction.rollback().await {
+                    tracing::warn!("Failed to rollback transaction: {}", e);
+                }
+                // Transaction is consumed by rollback(), so no need to drop it
+            }
+            }
+        }
         Ok(())
     }
 }
@@ -258,7 +303,9 @@ impl LockHandle for PostgresReadLockHandle {
 /// Handle for a held PostgreSQL write lock.
 pub struct PostgresWriteLockHandle {
     /// The database connection/transaction (when dropped, the lock is released).
-    _connection: PostgresConnectionInner,
+    _connection: Option<PostgresConnectionInner>,
+    /// The lock key for explicit unlock.
+    key: PostgresAdvisoryLockKey,
     /// Watch channel for lock lost detection.
     lost_receiver: watch::Receiver<bool>,
 }
@@ -266,12 +313,14 @@ pub struct PostgresWriteLockHandle {
 impl PostgresWriteLockHandle {
     pub(crate) fn new(
         connection: PostgresConnectionInner,
+        key: PostgresAdvisoryLockKey,
         _lost_sender: watch::Sender<bool>,
         lost_receiver: watch::Receiver<bool>,
         _keepalive_cadence: Option<Duration>,
     ) -> Self {
         Self {
-            _connection: connection,
+            _connection: Some(connection),
+            key,
             lost_receiver,
         }
     }
@@ -282,9 +331,24 @@ impl LockHandle for PostgresWriteLockHandle {
         &self.lost_receiver
     }
 
-    async fn release(self) -> LockResult<()> {
-        // Release the exclusive lock
-        drop(self._connection);
+    async fn release(mut self) -> LockResult<()> {
+        // Explicitly release the exclusive lock before dropping the connection
+        if let Some(connection) = self._connection.take() {
+            match connection {
+                PostgresConnectionInner::Connection(mut conn) => {
+                    let sql = format!("SELECT pg_advisory_unlock({})", self.key.to_sql_args());
+                    let _ = sqlx::query(&sql).execute(&mut *conn).await;
+                }
+            PostgresConnectionInner::Transaction(transaction_ptr) => {
+                // SAFETY: We created this pointer and it's still valid
+                let transaction = unsafe { Box::from_raw(transaction_ptr) };
+                if let Err(e) = transaction.rollback().await {
+                    tracing::warn!("Failed to rollback transaction: {}", e);
+                }
+                // Transaction is consumed by rollback(), so no need to drop it
+            }
+            }
+        }
         Ok(())
     }
 }

@@ -10,7 +10,7 @@ use tracing::{instrument, Span};
 
 use crate::handle::PostgresLockHandle;
 use crate::key::PostgresAdvisoryLockKey;
-use deadpool_postgres::Pool;
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
 /// A PostgreSQL-based distributed lock.
 pub struct PostgresDistributedLock {
@@ -19,7 +19,7 @@ pub struct PostgresDistributedLock {
     /// Original lock name.
     name: String,
     /// Connection pool.
-    pool: Pool,
+    pool: PgPool,
     /// Whether to use transaction-scoped locks.
     use_transaction: bool,
     /// Keepalive cadence for long-held locks.
@@ -30,7 +30,7 @@ impl PostgresDistributedLock {
     pub(crate) fn new(
         name: String,
         key: PostgresAdvisoryLockKey,
-        pool: Pool,
+        pool: PgPool,
         use_transaction: bool,
         keepalive_cadence: Option<Duration>,
     ) -> Self {
@@ -45,16 +45,9 @@ impl PostgresDistributedLock {
 
     /// Attempts to acquire the lock without waiting.
     async fn try_acquire_internal(&self) -> LockResult<Option<PostgresLockHandle>> {
-        let mut client = self.pool.get().await.map_err(|e| {
-            LockError::Connection(Box::new(std::io::Error::other(format!(
-                "failed to get connection from pool: {}",
-                e
-            ))))
-        })?;
-
         if self.use_transaction {
             // Transaction-scoped lock
-            let transaction = client.transaction().await.map_err(|e| {
+            let mut transaction = self.pool.begin().await.map_err(|e| {
                 LockError::Connection(Box::new(std::io::Error::other(format!(
                     "failed to start transaction: {}",
                     e
@@ -70,32 +63,48 @@ impl PostgresDistributedLock {
                 }
             };
 
-            let row = transaction.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to acquire lock: {}",
-                    e
-                ))))
-            })?;
+            let row = sqlx::query(&sql)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "failed to acquire lock: {}",
+                        e
+                    ))))
+                })?;
 
             let acquired: bool = row.get(0);
             if !acquired {
                 return Ok(None);
             }
 
-            // Extend transaction lifetime using unsafe (safe because we control it)
-            let transaction_ptr =
-                Box::into_raw(Box::new(transaction)) as *mut tokio_postgres::Transaction<'static>;
-            let transaction = unsafe { *Box::from_raw(transaction_ptr) };
+            // Store transaction using raw pointer to avoid lifetime issues
+            // SAFETY: We manually manage the transaction lifetime in the handle
+            let transaction_ptr = unsafe {
+                std::mem::transmute::<
+                    Transaction<'_, Postgres>,
+                    Transaction<'static, Postgres>,
+                >(transaction)
+            };
+            let transaction_ptr = Box::into_raw(Box::new(transaction_ptr));
 
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresLockHandle::new(
-                crate::handle::PostgresConnectionInner::Transaction(transaction),
+                crate::handle::PostgresConnectionInner::Transaction(transaction_ptr),
+                self.key,
                 sender,
                 receiver,
                 self.keepalive_cadence,
             )))
         } else {
             // Session-scoped lock
+            let mut connection = self.pool.acquire().await.map_err(|e| {
+                LockError::Connection(Box::new(std::io::Error::other(format!(
+                    "failed to get connection from pool: {}",
+                    e
+                ))))
+            })?;
+
             let sql = match self.key {
                 PostgresAdvisoryLockKey::Single(_) => {
                     format!("SELECT pg_try_advisory_lock({})", self.key.to_sql_args())
@@ -105,21 +114,28 @@ impl PostgresDistributedLock {
                 }
             };
 
-            let row = client.query_one(&sql, &[]).await.map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to acquire lock: {}",
-                    e
-                ))))
-            })?;
+            let row = sqlx::query(&sql)
+                .fetch_one(&mut *connection)
+                .await
+                .map_err(|e| {
+                    LockError::Backend(Box::new(std::io::Error::other(format!(
+                        "failed to acquire lock: {}",
+                        e
+                    ))))
+                })?;
 
             let acquired: bool = row.get(0);
             if !acquired {
                 return Ok(None);
             }
 
+            // Store pool connection to keep it alive
+            // PoolConnection will be returned to pool when dropped
+
             let (sender, receiver) = watch::channel(false);
             Ok(Some(PostgresLockHandle::new(
-                crate::handle::PostgresConnectionInner::Pool(self.pool.clone()),
+                crate::handle::PostgresConnectionInner::Connection(connection),
+                self.key,
                 sender,
                 receiver,
                 self.keepalive_cadence,

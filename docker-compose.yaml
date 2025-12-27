@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   redis:
-    image: valkey:/valkey:9.0.1-alpine3.23
+    image: valkey/valkey:9.0.1-alpine3.23
     container_name: distributed-lock-redis
     ports:
       - "6379:6379"
