@@ -15,6 +15,7 @@ distributed-lock-redis = { path = "crates/distributed-lock-redis" }
 tokio = { workspace = true }
 criterion = { version = "0.5", features = ["async_tokio"] }
 tempfile = "3"
+fred = "9"
 
 [workspace]
 resolver = "2"

@@ -14,12 +14,22 @@ fn get_redis_url() -> String {
     std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string())
 }
 
+/// Helper to generate unique lock names to prevent state persistence between test runs.
+fn unique_lock_name(base_name: &str) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    format!("{}-{}", base_name, timestamp)
+}
+
 #[tokio::test]
 #[ignore] // Requires Redis server running
 async fn test_exclusive_lock_acquisition() {
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_lock("test-exclusive");
+    let lock = provider.create_lock(&unique_lock_name("test-exclusive"));
 
     // First acquisition should succeed
     let handle1 = lock.try_acquire().await.unwrap();
@@ -43,7 +53,8 @@ async fn test_blocking_acquire() {
     let url = get_redis_url();
     let url_clone = url.clone();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_lock("test-blocking");
+    let lock_name = unique_lock_name("test-blocking");
+    let lock = provider.create_lock(&lock_name);
 
     // Acquire lock in first task
     let handle1 = lock.acquire(None).await.unwrap();
@@ -82,7 +93,7 @@ async fn test_blocking_acquire() {
 async fn test_lock_timeout() {
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_lock("test-timeout");
+    let lock = provider.create_lock(&unique_lock_name("test-timeout"));
 
     // Acquire lock
     let handle1 = lock.acquire(None).await.unwrap();
@@ -105,7 +116,7 @@ async fn test_lock_expiry() {
         .build()
         .await
         .unwrap();
-    let lock = provider.create_lock("test-expiry");
+    let lock = provider.create_lock(&unique_lock_name("test-expiry"));
 
     // Acquire lock
     {
@@ -129,7 +140,7 @@ async fn test_lock_expiry() {
 async fn test_reader_writer_lock_readers() {
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_reader_writer_lock("test-rw-readers");
+    let lock = provider.create_reader_writer_lock(&unique_lock_name("test-rw-readers"));
 
     // Multiple readers should be able to acquire simultaneously
     let handle1 = lock.try_acquire_read().await.unwrap();
@@ -152,7 +163,7 @@ async fn test_reader_writer_lock_readers() {
 async fn test_reader_writer_lock_writer_exclusive() {
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_reader_writer_lock("test-rw-writer");
+    let lock = provider.create_reader_writer_lock(&unique_lock_name("test-rw-writer"));
 
     // Writer should be able to acquire
     let write_handle = lock.try_acquire_write().await.unwrap();
@@ -181,7 +192,7 @@ async fn test_reader_writer_lock_writer_exclusive() {
 async fn test_reader_writer_lock_readers_block_writer() {
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_reader_writer_lock("test-rw-block-unique");
+    let lock = provider.create_reader_writer_lock(&unique_lock_name("test-rw-block-unique"));
 
     // Acquire multiple readers
     let read_handle1 = lock.try_acquire_read().await.unwrap().unwrap();
@@ -218,7 +229,7 @@ async fn test_redlock_multiple_servers() {
     // This verifies the RedLock logic works (though in practice you'd use different servers)
     let url = get_redis_url();
     let provider = RedisLockProvider::new(url).await.unwrap();
-    let lock = provider.create_lock("test-redlock");
+    let lock = provider.create_lock(&unique_lock_name("test-redlock"));
 
     // Should work with RedLock provider
     let handle = lock.try_acquire().await.unwrap();
@@ -234,7 +245,7 @@ async fn test_semaphore_max_count() {
     let provider = RedisLockProvider::new(url).await.unwrap();
 
     // Create a semaphore with max_count=3
-    let semaphore = provider.create_semaphore("test-semaphore-max", 3);
+    let semaphore = provider.create_semaphore(&unique_lock_name("test-semaphore-max"), 3);
     assert_eq!(semaphore.max_count(), 3);
 
     // Should be able to acquire 3 tickets
@@ -275,7 +286,8 @@ async fn test_semaphore_blocking_acquire() {
     let provider = RedisLockProvider::new(url).await.unwrap();
 
     // Create a semaphore with max_count=2
-    let semaphore = provider.create_semaphore("test-semaphore-blocking", 2);
+    let semaphore_name = unique_lock_name("test-semaphore-blocking");
+    let semaphore = provider.create_semaphore(&semaphore_name, 2);
 
     // Acquire both tickets
     let ticket1 = semaphore.acquire(None).await.unwrap();
@@ -317,7 +329,7 @@ async fn test_semaphore_timeout() {
     let provider = RedisLockProvider::new(url).await.unwrap();
 
     // Create a semaphore with max_count=1
-    let semaphore = provider.create_semaphore("test-semaphore-timeout", 1);
+    let semaphore = provider.create_semaphore(&unique_lock_name("test-semaphore-timeout"), 1);
 
     // Acquire the only ticket
     let ticket1 = semaphore.acquire(None).await.unwrap();
@@ -341,7 +353,7 @@ async fn test_semaphore_release_on_drop() {
     let provider = RedisLockProvider::new(url).await.unwrap();
 
     // Create a semaphore with max_count=1
-    let semaphore = provider.create_semaphore("test-semaphore-drop", 1);
+    let semaphore = provider.create_semaphore(&unique_lock_name("test-semaphore-drop"), 1);
 
     // Acquire ticket
     let ticket = semaphore.acquire(None).await.unwrap();

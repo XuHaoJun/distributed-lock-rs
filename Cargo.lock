@@ -453,6 +453,7 @@ dependencies = [
  "distributed-lock-file",
  "distributed-lock-postgres",
  "distributed-lock-redis",
+ "fred",
  "tempfile",
  "tokio",
 ]
