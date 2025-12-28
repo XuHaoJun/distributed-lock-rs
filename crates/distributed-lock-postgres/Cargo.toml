@@ -14,7 +14,7 @@ rust-version = "1.88"
 uninlined_format_args = "allow"
 
 [dependencies]
-distributed-lock-core = { path = "../distributed-lock-core" }
+distributed-lock-core = { path = "../distributed-lock-core", version = "0.1.0" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls"] }

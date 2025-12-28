@@ -15,9 +15,9 @@ rust-version = "1.88"
 uninlined_format_args = "allow"
 
 [dependencies]
-distributed-lock-core = { path = "../distributed-lock-core" }
-distributed-lock-postgres = { path = "../distributed-lock-postgres" }
-distributed-lock-redis = { path = "../distributed-lock-redis" }
-distributed-lock-file = { path = "../distributed-lock-file" }
+distributed-lock-core = { path = "../distributed-lock-core", version = "0.1.0" }
+distributed-lock-postgres = { path = "../distributed-lock-postgres", version = "0.1.0" }
+distributed-lock-redis = { path = "../distributed-lock-redis", version = "0.1.0" }
+distributed-lock-file = { path = "../distributed-lock-file", version = "0.1.0" }
 
 [dev-dependencies]
