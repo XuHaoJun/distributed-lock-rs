@@ -8,7 +8,6 @@ description = "Distributed locks for Rust with multiple backend support (Postgre
 repository = "https://github.com/XuHaoJun/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "synchronization", "postgres", "redis", "file"]
 categories = ["concurrency", "asynchronous", "database"]
-readme = "README.md"
 rust-version = "1.88"
 
 [lints.clippy]
