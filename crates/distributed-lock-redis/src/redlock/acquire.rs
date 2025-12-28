@@ -1,10 +1,7 @@
 //! RedLock acquire algorithm implementation.
 
-use std::time::Duration;
-
 use distributed_lock_core::error::{LockError, LockResult};
 use fred::prelude::*;
-use tokio::time::Instant;
 
 use super::helper::RedLockHelper;
 use super::timeouts::RedLockTimeouts;
@@ -33,6 +30,11 @@ impl RedLockAcquireResult {
         self.acquire_results.iter().filter(|&&v| v).count()
     }
 }
+
+// ... imports ...
+use tokio::task::JoinSet; // Add this import
+
+// ...
 
 /// Acquires a lock using the RedLock algorithm across multiple Redis servers.
 ///
@@ -70,105 +72,99 @@ where
     let acquire_timeout = timeouts.acquire_timeout();
     let timeout_duration = acquire_timeout.as_duration();
 
-    // Start acquire attempts on all clients in parallel
-    let mut acquire_tasks: Vec<tokio::task::JoinHandle<LockResult<bool>>> = Vec::new();
+    // Use JoinSet to manage concurrent acquisition tasks
+    let mut join_set = JoinSet::new();
 
-    for client in clients {
+    for (idx, client) in clients.iter().enumerate() {
         let client_clone = client.clone();
         let try_acquire_fn_clone = try_acquire_fn.clone();
-        let task = tokio::spawn(async move { try_acquire_fn_clone(&client_clone).await });
-        acquire_tasks.push(task);
+        join_set.spawn(async move {
+            let result = try_acquire_fn_clone(&client_clone).await;
+            (idx, result)
+        });
     }
 
-    // Wait for results with timeout
-    let start = Instant::now();
     let mut results: Vec<Option<bool>> = vec![None; clients.len()];
     let mut success_count = 0;
     let mut fail_count = 0;
 
-    // Wait for tasks to complete or timeout
+    // Create timeout future (if applicable)
+    let timeout_fut = async {
+        if let Some(dur) = timeout_duration {
+            tokio::time::sleep(dur).await;
+            true // Timed out
+        } else {
+            std::future::pending::<bool>().await;
+            false // Never times out
+        }
+    };
+    tokio::pin!(timeout_fut);
+
+    // Create cancellation future
+    let mut cancel_rx = cancel_token.clone();
+
     loop {
-        // Check timeout
-        if let Some(timeout_dur) = timeout_duration {
-            if start.elapsed() >= timeout_dur {
-                // Timeout - return failure
+        tokio::select! {
+            // 1. Check for cancellation
+            _ = cancel_rx.changed() => {
+               if *cancel_rx.borrow() {
+                   // Abort remaining tasks automatically when join_set is dropped
+                   return Err(LockError::Cancelled);
+               }
+            }
+
+            // 2. Check for overall timeout
+            _ = &mut timeout_fut => {
+                // Abort remaining tasks
                 return Ok(None);
             }
-        }
 
-        // Check for cancellation
-        if cancel_token.has_changed().unwrap_or(false) && *cancel_token.borrow() {
-            return Err(LockError::Cancelled);
-        }
-
-        // Check completed tasks
-        for (idx, task) in acquire_tasks.iter_mut().enumerate() {
-            if results[idx].is_some() {
-                continue; // Already processed
-            }
-
-            if task.is_finished() {
-                match task.await {
-                    Ok(Ok(true)) => {
-                        results[idx] = Some(true);
-                        success_count += 1;
-                        if RedLockHelper::has_sufficient_successes(success_count, clients.len()) {
-                            // We have majority - fill remaining with false and return success
-                            for r in results.iter_mut() {
-                                if r.is_none() {
-                                    *r = Some(false);
+            // 3. Process completed tasks
+            Some(join_result) = join_set.join_next() => {
+                match join_result {
+                    Ok((idx, lock_res)) => {
+                        match lock_res {
+                            Ok(true) => {
+                                results[idx] = Some(true);
+                                success_count += 1;
+                                if RedLockHelper::has_sufficient_successes(success_count, clients.len()) {
+                                    // Majority reached!
+                                    // Fill remaining with false (unknown state but logically not holding)
+                                    // Note: In RedLock, we technically might have acquired others,
+                                    // but we only claim the ones we know about + default false.
+                                    // Background release will clean up anyway.
+                                    let final_results: Vec<bool> = results.iter().map(|r| r.unwrap_or(false)).collect();
+                                    return Ok(Some(RedLockAcquireResult::new(final_results)));
                                 }
                             }
-                            return Ok(Some(RedLockAcquireResult::new(
-                                results.into_iter().map(|r| r.unwrap_or(false)).collect(),
-                            )));
-                        }
-                    }
-                    Ok(Ok(false)) => {
-                        results[idx] = Some(false);
-                        fail_count += 1;
-                        if RedLockHelper::has_too_many_failures_or_faults(fail_count, clients.len())
-                        {
-                            // Can't achieve majority - return failure
-                            return Ok(None);
-                        }
-                    }
-                    Ok(Err(e)) => {
-                        // Error acquiring - treat as failure
-                        results[idx] = Some(false);
-                        fail_count += 1;
-                        if RedLockHelper::has_too_many_failures_or_faults(fail_count, clients.len())
-                        {
-                            return Err(e);
+                            Ok(false) => {
+                                results[idx] = Some(false);
+                                fail_count += 1;
+                            }
+                            Err(_) => {
+                                // Error acquiring
+                                results[idx] = Some(false);
+                                fail_count += 1;
+                            }
                         }
                     }
                     Err(_) => {
-                        // Task panicked - treat as failure
-                        results[idx] = Some(false);
+                        // Task panicked or cancelled
                         fail_count += 1;
-                        if RedLockHelper::has_too_many_failures_or_faults(fail_count, clients.len())
-                        {
-                            return Ok(None);
-                        }
                     }
                 }
+
+                // Check if too many failures to ever succeed
+                if RedLockHelper::has_too_many_failures_or_faults(fail_count, clients.len()) {
+                     return Ok(None);
+                }
+            }
+
+            // 4. If all tasks finished and we are here (join_set empty), we failed
+            else => {
+                 return Ok(None);
             }
         }
-
-        // If all tasks are done, check final result
-        if results.iter().all(|r| r.is_some()) {
-            let result = RedLockAcquireResult::new(
-                results.into_iter().map(|r| r.unwrap_or(false)).collect(),
-            );
-            if result.is_successful(clients.len()) {
-                return Ok(Some(result));
-            } else {
-                return Ok(None);
-            }
-        }
-
-        // Sleep briefly before checking again
-        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
 

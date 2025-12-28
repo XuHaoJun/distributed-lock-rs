@@ -1,11 +1,12 @@
 //! Redis distributed semaphore implementation.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::timeout::TimeoutValue;
 use distributed_lock_core::traits::{DistributedSemaphore, LockHandle};
 use fred::prelude::*;
+use fred::types::CustomCommand;
 use rand::Rng;
 use tokio::sync::watch;
 
@@ -29,6 +30,32 @@ pub struct RedisDistributedSemaphore {
 }
 
 impl RedisDistributedSemaphore {
+    /// Lua script for semaphore acquisition.
+    /// 1. Gets Redis time
+    /// 2. Removes expired tickets (zremrangebyscore)
+    /// 3. Checks if count < max_count
+    /// 4. Adds new ticket with expiry score if allowed
+    /// 5. Extends set TTL
+    const ACQUIRE_SCRIPT: &'static str = r#"
+        redis.replicate_commands()
+        local nowResult = redis.call('time')
+        local nowMillis = (tonumber(nowResult[1]) * 1000.0) + (tonumber(nowResult[2]) / 1000.0)
+        
+        redis.call('zremrangebyscore', KEYS[1], '-inf', nowMillis)
+        
+        if redis.call('zcard', KEYS[1]) < tonumber(ARGV[1]) then
+            redis.call('zadd', KEYS[1], nowMillis + tonumber(ARGV[2]), ARGV[3])
+            
+            -- Extend key TTL (set to 3x ticket expiry to be safe)
+            local keyTtl = redis.call('pttl', KEYS[1])
+            if keyTtl < tonumber(ARGV[4]) then
+                redis.call('pexpire', KEYS[1], ARGV[4])
+            end
+            return 1
+        end
+        return 0
+    "#;
+
     pub(crate) fn new(
         name: String,
         max_count: u32,
@@ -54,91 +81,47 @@ impl RedisDistributedSemaphore {
         format!("{:016x}", rng.gen::<u64>())
     }
 
-    /// Gets current time in milliseconds since Unix epoch.
-    fn now_millis() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
-    }
-
     /// Attempts to acquire a semaphore ticket without waiting.
     async fn try_acquire_internal(&self) -> LockResult<Option<RedisSemaphoreHandle>> {
         let lock_id = Self::generate_lock_id();
-        let now_millis = Self::now_millis();
         let expiry_millis = self.expiry.as_millis() as u64;
-        let expiry_time = now_millis + expiry_millis;
 
-        // Use Redis commands (non-atomic but simpler for now)
-        // TODO: Use Lua script for atomicity when fred API is clarified
+        // TTL for the whole set (3x expiry)
+        let set_expiry_millis = expiry_millis * 3;
 
-        // Remove expired entries
-        let _: u32 = self
-            .client
-            .zremrangebyscore(&self.key, 0.0, now_millis as f64)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "Redis error: {}",
-                    e
-                ))))
-            })?;
+        let args: Vec<RedisValue> = vec![
+            Self::ACQUIRE_SCRIPT.into(),
+            1_i64.into(),                      // numkeys
+            self.key.clone().into(),           // KEYS[1]
+            (self.max_count as i64).into(),    // ARGV[1]
+            (expiry_millis as i64).into(),     // ARGV[2]
+            lock_id.clone().into(),            // ARGV[3]
+            (set_expiry_millis as i64).into(), // ARGV[4]
+        ];
 
-        // Check current count
-        let count: u32 = self.client.zcard(&self.key).await.map_err(|e| {
+        let cmd = CustomCommand::new_static("EVAL", None, false);
+        let result: i64 = self.client.custom(cmd, args).await.map_err(|e| {
             LockError::Backend(Box::new(std::io::Error::other(format!(
-                "Redis error: {}",
+                "Redis custom EVAL (acquire semaphore) failed: {}",
                 e
             ))))
         })?;
 
-        if count >= self.max_count {
-            return Ok(None);
+        if result == 1 {
+            // Successfully acquired
+            let (sender, receiver) = watch::channel(false);
+            Ok(Some(RedisSemaphoreHandle::new(
+                self.key.clone(),
+                lock_id,
+                self.client.clone(),
+                self.expiry,
+                self.extension_cadence,
+                sender,
+                receiver,
+            )))
+        } else {
+            Ok(None)
         }
-
-        // Add our ticket
-        let _: () = self
-            .client
-            .zadd(
-                &self.key,
-                None,
-                None,
-                false,
-                false,
-                (expiry_time as f64, lock_id.clone()),
-            )
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "Redis error: {}",
-                    e
-                ))))
-            })?;
-
-        // Set TTL on the key
-        let set_expiry = expiry_millis * 2;
-        let _: bool = self
-            .client
-            .pexpire(&self.key, set_expiry as i64, None)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "Redis error: {}",
-                    e
-                ))))
-            })?;
-
-        // Successfully acquired
-        let (sender, receiver) = watch::channel(false);
-        Ok(Some(RedisSemaphoreHandle::new(
-            self.key.clone(),
-            lock_id,
-            self.client.clone(),
-            self.expiry,
-            self.extension_cadence,
-            sender,
-            receiver,
-        )))
     }
 }
 
@@ -158,6 +141,7 @@ impl DistributedSemaphore for RedisDistributedSemaphore {
         let start = std::time::Instant::now();
 
         // Busy-wait with exponential backoff
+        // TODO: Could optimize this further but atomicity is primary goal now
         let mut sleep_duration = Duration::from_millis(10);
         const MAX_SLEEP: Duration = Duration::from_millis(200);
 
@@ -207,6 +191,30 @@ pub struct RedisSemaphoreHandle {
 }
 
 impl RedisSemaphoreHandle {
+    /// Lua script for semaphore extension.
+    /// 1. Gets Redis time
+    /// 2. Updates score (expiry) for our lock ID only if it exists (XX)
+    /// 3. Extends set TTL
+    const EXTEND_SCRIPT: &'static str = r#"
+        redis.replicate_commands()
+        local nowResult = redis.call('time')
+        local nowMillis = (tonumber(nowResult[1]) * 1000.0) + (tonumber(nowResult[2]) / 1000.0)
+        
+        local result = redis.call('zadd', KEYS[1], 'XX', 'CH', nowMillis + tonumber(ARGV[1]), ARGV[2])
+        
+        -- Extend key TTL
+        local keyTtl = redis.call('pttl', KEYS[1])
+        if keyTtl < tonumber(ARGV[3]) then
+            redis.call('pexpire', KEYS[1], ARGV[3])
+        end
+        return result
+    "#;
+
+    /// Lua script for semaphore release.
+    const RELEASE_SCRIPT: &'static str = r#"
+        return redis.call('zrem', KEYS[1], ARGV[1])
+    "#;
+
     pub(crate) fn new(
         key: String,
         lock_id: String,
@@ -225,6 +233,9 @@ impl RedisSemaphoreHandle {
         // Spawn background task to extend the lock
         let extension_task = tokio::spawn(async move {
             let mut interval = tokio::time::interval(extension_cadence);
+            // TTL for the whole set (3x expiry)
+            let set_expiry_millis = extension_expiry.as_millis() * 3;
+
             loop {
                 interval.tick().await;
 
@@ -233,64 +244,34 @@ impl RedisSemaphoreHandle {
                     break;
                 }
 
-                // Extend the lock
-                let now_millis = RedisDistributedSemaphore::now_millis();
                 let expiry_millis = extension_expiry.as_millis() as u64;
-                let expiry_time = now_millis + expiry_millis;
 
-                // Remove expired entries
-                let _: u32 = match extension_client
-                    .zremrangebyscore(&extension_key, 0.0, now_millis as f64)
-                    .await
-                {
-                    Ok(count) => count,
+                let args: Vec<RedisValue> = vec![
+                    Self::EXTEND_SCRIPT.into(),
+                    1_i64.into(), // numkeys
+                    extension_key.clone().into(),
+                    (expiry_millis as i64).into(),
+                    extension_lock_id.clone().into(),
+                    (set_expiry_millis as i64).into(),
+                ];
+
+                let cmd = CustomCommand::new_static("EVAL", None, false);
+                let result_op: Result<i64, _> = extension_client.custom(cmd, args).await;
+
+                match result_op {
+                    Ok(changed_count) => {
+                        // zadd with CH returns number of changed elements.
+                        // If 0, it means the element wasn't found (expired/lost).
+                        if changed_count == 0 {
+                            let _ = extension_lost_sender.send(true);
+                            break;
+                        }
+                    }
                     Err(_) => {
                         // Connection error - signal lock lost
                         let _ = extension_lost_sender.send(true);
                         break;
                     }
-                };
-
-                // Update our ticket expiry
-                // Note: We use zadd with the same score to update expiry time
-                let result: u32 = match extension_client
-                    .zadd(
-                        &extension_key,
-                        None,
-                        None,
-                        false,
-                        false,
-                        (expiry_time as f64, extension_lock_id.clone()),
-                    )
-                    .await
-                {
-                    Ok(count) => count,
-                    Err(_) => {
-                        // Connection error - signal lock lost
-                        let _ = extension_lost_sender.send(true);
-                        break;
-                    }
-                };
-
-                // Renew set TTL if needed
-                let set_expiry = expiry_millis * 2;
-                let _: bool = match extension_client
-                    .pexpire(&extension_key, set_expiry as i64, None)
-                    .await
-                {
-                    Ok(result) => result,
-                    Err(_) => {
-                        // Connection error - signal lock lost
-                        let _ = extension_lost_sender.send(true);
-                        break;
-                    }
-                };
-
-                // If update failed (result == 0), lock was removed - signal lost
-                // Note: zadd returns the number of elements added, so 0 means it wasn't found
-                if result == 0 {
-                    let _ = extension_lost_sender.send(true);
-                    break;
                 }
             }
         });
@@ -316,17 +297,22 @@ impl LockHandle for RedisSemaphoreHandle {
         // Abort the extension task
         self._extension_task.abort();
 
+        let args: Vec<RedisValue> = vec![
+            Self::RELEASE_SCRIPT.into(),
+            1_i64.into(), // numkeys
+            self.key.clone().into(),
+            self.lock_id.clone().into(),
+        ];
+
+        let cmd = CustomCommand::new_static("EVAL", None, false);
+
         // Remove our ticket from the sorted set
-        let _: () = self
-            .client
-            .zrem(&self.key, &self.lock_id)
-            .await
-            .map_err(|e| {
-                LockError::Backend(Box::new(std::io::Error::other(format!(
-                    "failed to release semaphore ticket: {}",
-                    e
-                ))))
-            })?;
+        let _: i64 = self.client.custom(cmd, args).await.map_err(|e| {
+            LockError::Backend(Box::new(std::io::Error::other(format!(
+                "failed to release semaphore ticket: {}",
+                e
+            ))))
+        })?;
 
         Ok(())
     }

@@ -5,6 +5,7 @@ use std::time::Duration;
 use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::traits::DistributedLock;
 use fred::prelude::*;
+use fred::types::CustomCommand; // Correct import
 use tracing::{instrument, Span};
 
 use crate::redlock::{acquire::acquire_redlock, helper::RedLockHelper, timeouts::RedLockTimeouts};
@@ -56,68 +57,76 @@ impl RedisLockState {
         Ok(result.is_some())
     }
 
+    // ... imports ...
+    // No special imports needed for custom command if RedisClient is in scope,
+    // but we need RedisValue which is in prelude.
+
+    // ...
+
+    /// Lua script to extend the lock duration.
+    const EXTEND_SCRIPT_LUA: &'static str = r#"
+        if redis.call('get', KEYS[1]) == ARGV[1] then
+            return redis.call('pexpire', KEYS[1], ARGV[2])
+        end
+        return 0
+    "#;
+
+    /// Lua script to release the lock.
+    const RELEASE_SCRIPT_LUA: &'static str = r#"
+        if redis.call('get', KEYS[1]) == ARGV[1] then
+            return redis.call('del', KEYS[1])
+        end
+        return 0
+    "#;
+
     /// Attempts to extend the lock on a single Redis client.
     ///
-    /// Uses GET + PEXPIRE to verify ownership and extend TTL.
-    /// TODO: Use Lua script for atomicity once fred API is clarified.
+    /// Uses a Lua script to atomically verify ownership and extend TTL.
     pub async fn try_extend(&self, client: &RedisClient) -> LockResult<bool> {
         let expiry_millis = self.timeouts.expiry.as_millis() as i64;
 
-        // First check if the key exists and value matches our lock_id
-        let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
+        let args: Vec<RedisValue> = vec![
+            Self::EXTEND_SCRIPT_LUA.into(),
+            1_i64.into(), // numkeys
+            self.key.clone().into(),
+            self.lock_id.clone().into(),
+            expiry_millis.into(),
+        ];
+
+        // CustomCommand::new_static is common for static strings or just new
+        let cmd = CustomCommand::new_static("EVAL", None, false);
+
+        let result: i64 = client.custom(cmd, args).await.map_err(|e| {
             LockError::Backend(Box::new(std::io::Error::other(format!(
-                "Redis GET failed: {}",
+                "Redis custom EVAL (extend) failed: {}",
                 e
             ))))
         })?;
 
-        match current_value {
-            Some(value) if value == self.lock_id => {
-                // Value matches - extend TTL
-                let _: bool = client
-                    .pexpire(&self.key, expiry_millis, None)
-                    .await
-                    .map_err(|e| {
-                        LockError::Backend(Box::new(std::io::Error::other(format!(
-                            "Redis PEXPIRE failed: {}",
-                            e
-                        ))))
-                    })?;
-                Ok(true)
-            }
-            _ => Ok(false), // Key doesn't exist or value doesn't match
-        }
+        Ok(result == 1)
     }
 
     /// Attempts to release the lock on a single Redis client.
     ///
-    /// Uses GET + DEL to verify ownership before deleting.
-    /// TODO: Use Lua script for atomicity once fred API is clarified.
+    /// Uses a Lua script to atomically verify ownership before deleting.
     pub async fn try_release(&self, client: &RedisClient) -> LockResult<()> {
-        // First check if the key exists and value matches our lock_id
-        let current_value: Option<String> = client.get(&self.key).await.map_err(|e| {
+        let args: Vec<RedisValue> = vec![
+            Self::RELEASE_SCRIPT_LUA.into(),
+            1_i64.into(), // numkeys
+            self.key.clone().into(),
+            self.lock_id.clone().into(),
+        ];
+
+        let cmd = CustomCommand::new_static("EVAL", None, false);
+
+        let _: i64 = client.custom(cmd, args).await.map_err(|e| {
             LockError::Backend(Box::new(std::io::Error::other(format!(
-                "Redis GET failed: {}",
+                "Redis custom EVAL (release) failed: {}",
                 e
             ))))
         })?;
 
-        match current_value {
-            Some(value) if value == self.lock_id => {
-                // Value matches - delete the key
-                let _: i64 = client.del(&self.key).await.map_err(|e| {
-                    LockError::Backend(Box::new(std::io::Error::other(format!(
-                        "Redis DEL failed: {}",
-                        e
-                    ))))
-                })?;
-                Ok(())
-            }
-            _ => {
-                // Key doesn't exist or value doesn't match - already released or not ours
-                Ok(())
-            }
-        }
+        Ok(())
     }
 }
 
