@@ -1,6 +1,6 @@
 # distributed-lock-rs
 
-[![CI](https://github.com/yourusername/distributed-lock-rs/workflows/CI/badge.svg)](https://github.com/yourusername/distributed-lock-rs/actions)
+[![CI](https://github.com/XuHaoJun/distributed-lock-rs/workflows/CI/badge.svg)](https://github.com/XuHaoJun/distributed-lock-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/distributed-lock.svg)](https://crates.io/crates/distributed-lock)
 [![Documentation](https://docs.rs/distributed-lock/badge.svg)](https://docs.rs/distributed-lock)
 [![MSRV](https://img.shields.io/badge/rustc-1.88+-blue.svg)](https://www.rust-lang.org)
@@ -308,12 +308,7 @@ Each backend implements the same trait interfaces, allowing you to swap backends
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under the MIT License ([LICENSE](LICENSE) or http://opensource.org/licenses/MIT).
 
 ## Contributing
 

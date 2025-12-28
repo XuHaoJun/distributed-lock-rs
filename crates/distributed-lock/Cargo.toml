@@ -2,10 +2,10 @@
 name = "distributed-lock"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <you@example.com>"]
-license = "MIT OR Apache-2.0"
+authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
+license = "MIT"
 description = "Distributed locks for Rust with multiple backend support (PostgreSQL, Redis, file system)"
-repository = "https://github.com/yourusername/distributed-lock-rs"
+repository = "https://github.com/XuHaoJun/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "synchronization", "postgres", "redis", "file"]
 categories = ["concurrency", "asynchronous", "database"]
 readme = "README.md"

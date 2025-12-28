@@ -2,10 +2,10 @@
 name = "distributed-lock-file"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <you@example.com>"]
-license = "MIT OR Apache-2.0"
+authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
+license = "MIT"
 description = "File system backend for distributed locks using OS-level file locking"
-repository = "https://github.com/yourusername/distributed-lock-rs"
+repository = "https://github.com/XuHaoJun/distributed-lock-rs"
 keywords = ["distributed", "lock", "mutex", "file", "filesystem"]
 categories = ["concurrency", "asynchronous"]
 rust-version = "1.88"
