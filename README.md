@@ -28,6 +28,25 @@ distributed-lock-postgres = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
+### MySQL
+Uses MySQL user-defined variables and database tables. Supports reader-writer locks through automatic table creation.
+
+**Note**: Reader-writer locks require creating a `distributed_locks` table in your MySQL database. This table is created automatically when needed, as MySQL doesn't provide built-in reader-writer lock primitives like PostgreSQL.
+
+```toml
+[dependencies]
+distributed-lock-mysql = "0.1"
+tokio = { version = "1", features = ["full"] }
+```
+
+Or use the meta-crate:
+
+```toml
+[dependencies]
+distributed-lock = { version = "0.1", features = ["mysql"] }
+tokio = { version = "1", features = ["full"] }
+```
+
 ### Redis
 Uses Redis with RedLock algorithm for multi-server deployments. Supports semaphores and automatic lease extension.
 
@@ -52,6 +71,14 @@ Or use the meta-crate to get all backends:
 ```toml
 [dependencies]
 distributed-lock = "0.1"
+tokio = { version = "1", features = ["full"] }
+```
+
+You can also enable specific backends:
+
+```toml
+[dependencies]
+distributed-lock = { version = "0.1", features = ["mysql", "postgres"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -107,6 +134,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     do_work().await?;
 
     handle.release().await?;
+    Ok(())
+}
+```
+
+### MySQL Example
+
+```rust
+use distributed_lock_mysql::MySqlLockProvider;
+use distributed_lock_core::prelude::*;
+use std::time::Duration;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let provider = MySqlLockProvider::builder()
+        .connection_string("mysql://user:pass@localhost/db")
+        .build()
+        .await?;
+
+    // Basic mutex lock
+    let lock = provider.create_lock("my-resource");
+    let handle = lock.acquire(Some(Duration::from_secs(5))).await?;
+    do_work().await?;
+    handle.release().await?;
+
+    // Reader-writer lock (creates distributed_locks table automatically)
+    let rw_lock = provider.create_reader_writer_lock("shared-resource");
+    let read_handle = rw_lock.acquire_read(None).await?;
+    read_data().await;
+    read_handle.release().await?;
+
     Ok(())
 }
 ```
@@ -232,6 +289,7 @@ This library is organized as a Cargo workspace with separate crates:
 
 - `distributed-lock-core`: Core traits and types
 - `distributed-lock-file`: File system backend
+- `distributed-lock-mysql`: MySQL backend
 - `distributed-lock-postgres`: PostgreSQL backend
 - `distributed-lock-redis`: Redis backend
 - `distributed-lock`: Meta-crate re-exporting all backends
@@ -244,6 +302,7 @@ Each backend implements the same trait interfaces, allowing you to swap backends
 - Tokio async runtime (for async operations)
 - Backend-specific requirements:
   - **PostgreSQL**: PostgreSQL 9.5+ with `pg_advisory_lock` support
+  - **MySQL**: MySQL 5.7+ or MariaDB 10.0+ (reader-writer locks create a `distributed_locks` table)
   - **Redis**: Redis 2.6+ (Redis 3.0+ recommended)
   - **File**: Any POSIX-compliant filesystem
 

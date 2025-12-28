@@ -11,6 +11,7 @@ uninlined_format_args = "allow"
 distributed-lock = { path = "crates/distributed-lock" }
 distributed-lock-core = { path = "crates/distributed-lock-core" }
 distributed-lock-file = { path = "crates/distributed-lock-file" }
+distributed-lock-mysql = { path = "crates/distributed-lock-mysql" }
 distributed-lock-postgres = { path = "crates/distributed-lock-postgres" }
 distributed-lock-redis = { path = "crates/distributed-lock-redis" }
 
@@ -24,6 +25,7 @@ fred = "9"
 resolver = "2"
 members = [
     "crates/distributed-lock-core",
+    "crates/distributed-lock-mysql",
     "crates/distributed-lock-postgres",
     "crates/distributed-lock-redis",
     "crates/distributed-lock-file",

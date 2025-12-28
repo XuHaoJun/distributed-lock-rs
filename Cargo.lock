@@ -422,6 +422,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "distributed-lock-mysql"
+version = "0.1.0"
+dependencies = [
+ "distributed-lock-core",
+ "sha2",
+ "sqlx",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "distributed-lock-postgres"
 version = "0.1.0"
 dependencies = [
@@ -451,6 +462,7 @@ dependencies = [
  "distributed-lock",
  "distributed-lock-core",
  "distributed-lock-file",
+ "distributed-lock-mysql",
  "distributed-lock-postgres",
  "distributed-lock-redis",
  "fred",

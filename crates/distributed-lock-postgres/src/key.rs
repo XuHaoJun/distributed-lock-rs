@@ -120,6 +120,7 @@ impl PostgresAdvisoryLockKey {
     }
 
     /// Hash a string to i64 using SHA-256 (taking first 8 bytes).
+    #[allow(clippy::disallowed_methods)]
     fn hash_string(name: &str) -> i64 {
         let mut hasher = Sha256::new();
         hasher.update(name.as_bytes());

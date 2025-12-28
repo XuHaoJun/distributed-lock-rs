@@ -20,7 +20,7 @@ jobs:
       redis:
         image: valkey/valkey:9.0.1-alpine3.23
         ports:
-          - 6379:6379
+          - "6379:6379"
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -34,15 +34,30 @@ jobs:
           POSTGRES_DB: postgres
           PGDATA: /var/lib/postgresql/18/docker
         ports:
-          - 5432:5432
+          - "5432:5432"
         options: >-
           --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mysql:
+        image: mysql:9.1.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: mysql
+          MYSQL_USER: mysql
+          MYSQL_PASSWORD: password
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -ppassword"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
       REDIS_URL: redis://localhost:6379
       POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      MYSQL_URL: mysql://mysql:password@localhost:3306/mysql
     steps:
       - uses: actions/checkout@v4
       
