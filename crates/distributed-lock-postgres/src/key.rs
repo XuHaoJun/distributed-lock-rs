@@ -1,7 +1,7 @@
 //! PostgreSQL advisory lock key encoding.
 
 use distributed_lock_core::error::{LockError, LockResult};
-use sha2::{Digest, Sha256};
+use sha1::{Digest, Sha1};
 
 /// Key for PostgreSQL advisory locks.
 ///
@@ -119,14 +119,16 @@ impl PostgresAdvisoryLockKey {
         Some(Self::Pair(key1, key2))
     }
 
-    /// Hash a string to i64 using SHA-256 (taking first 8 bytes).
+    /// Hash a string to i64 using SHA-1 (taking first 8 bytes).
     #[allow(clippy::disallowed_methods)]
     fn hash_string(name: &str) -> i64 {
-        let mut hasher = Sha256::new();
+        let mut hasher = Sha1::new();
         hasher.update(name.as_bytes());
         let hash_bytes = hasher.finalize();
 
         // Take first 8 bytes and convert to i64 (little-endian)
+        // This matches the C# implementation:
+        // for (var i = sizeof(long) - 1; i >= 0; --i) { result = (result << 8) | hashBytes[i]; }
         let mut result = 0i64;
         for i in (0..8).rev() {
             result = (result << 8) | (hash_bytes[i] as i64);

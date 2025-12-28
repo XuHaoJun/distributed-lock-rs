@@ -437,7 +437,7 @@ name = "distributed-lock-postgres"
 version = "0.1.0"
 dependencies = [
  "distributed-lock-core",
- "sha2",
+ "sha1",
  "sqlx",
  "tokio",
  "tracing",
