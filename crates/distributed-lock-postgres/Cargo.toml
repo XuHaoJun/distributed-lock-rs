@@ -6,7 +6,7 @@ authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
 license = "MIT"
 description = "PostgreSQL backend for distributed locks using advisory locks"
 repository = "https://github.com/XuHaoJun/distributed-lock-rs"
-keywords = ["distributed", "lock", "mutex", "postgres", "postgresql", "database"]
+keywords = ["distributed", "lock", "mutex", "postgresql"]
 categories = ["concurrency", "asynchronous", "database"]
 rust-version = "1.88"
 

@@ -6,7 +6,7 @@ authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
 license = "MIT"
 description = "MySQL backend for distributed locks using GET_LOCK/RELEASE_LOCK functions"
 repository = "https://github.com/XuHaoJun/distributed-lock-rs"
-keywords = ["distributed", "lock", "mutex", "mysql", "mariadb", "database"]
+keywords = ["distributed", "lock", "mutex", "mysql", "mariadb"]
 categories = ["concurrency", "asynchronous", "database"]
 rust-version = "1.88"
 
