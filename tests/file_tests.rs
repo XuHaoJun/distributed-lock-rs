@@ -402,3 +402,61 @@ async fn test_exclusive_lock_semantics() {
     );
     handle6.unwrap().release().await.unwrap();
 }
+
+#[tokio::test]
+async fn test_lock_path_is_directory() {
+    let temp_dir = std::env::temp_dir();
+    let lock_dir = temp_dir.join("test-is-dir");
+    std::fs::create_dir_all(&lock_dir).unwrap();
+
+    let _provider = FileLockProvider::new(temp_dir).unwrap();
+    // Using the directory name as the lock name will result in the same path
+    // if not hashed, or we can use from_path
+    let lock = FileDistributedLock::from_path(&lock_dir).unwrap();
+
+    let result = lock.try_acquire().await;
+    assert!(result.is_err());
+    let err = result.err().unwrap();
+    assert!(err
+        .to_string()
+        .contains("is already the name of a directory"));
+
+    // Cleanup
+    std::fs::remove_dir(lock_dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_no_truncation() {
+    let temp_dir = std::env::temp_dir();
+    let provider = FileLockProvider::new(temp_dir).unwrap();
+    let lock = provider.create_lock("test-no-truncation");
+    let lock_path = lock.path().clone();
+
+    // 1. Acquire, write data, release
+    {
+        let handle = lock.acquire(None).await.unwrap();
+        std::fs::write(&lock_path, b"some data").unwrap();
+        handle.release().await.unwrap();
+    }
+
+    // 2. Clear release might delete file, so we need to be careful.
+    // In our implementation, release() calls remove_file.
+    // So let's test without explicit release first, or just check the file exists.
+
+    // If we want to test truncation, we should probably NOT delete the file on release for this test.
+    // But our handle always deletes. Let's manually create the file.
+
+    std::fs::write(&lock_path, b"persistent data").unwrap();
+
+    // 3. Acquire again
+    let handle = lock.acquire(None).await.unwrap();
+
+    // 4. Check if data is still there
+    let data = std::fs::read(&lock_path).unwrap();
+    assert_eq!(
+        data, b"persistent data",
+        "File should not be truncated on acquisition"
+    );
+
+    handle.release().await.unwrap();
+}

@@ -60,123 +60,115 @@ impl FileDistributedLock {
         use std::fs::OpenOptions;
         use std::io::ErrorKind;
 
-        // Ensure parent directory exists
-        if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| match e.kind() {
-                ErrorKind::PermissionDenied => {
-                    LockError::Connection(Box::new(std::io::Error::new(
-                        ErrorKind::PermissionDenied,
-                        format!(
-                            "permission denied creating lock directory '{}': {}",
-                            parent.display(),
-                            e
-                        ),
-                    )))
-                }
-                ErrorKind::OutOfMemory => LockError::Connection(Box::new(std::io::Error::new(
-                    ErrorKind::OutOfMemory,
-                    format!(
-                        "insufficient storage creating lock directory '{}': {}",
-                        parent.display(),
-                        e
-                    ),
-                ))),
-                _ => LockError::Connection(Box::new(std::io::Error::other(format!(
-                    "failed to create lock directory '{}': {}",
-                    parent.display(),
-                    e
-                )))),
-            })?;
-        }
+        const MAX_RETRIES: i32 = 1600;
+        let mut retry_count = 0;
 
-        // Open or create the file
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&self.path)
-            .map_err(|e| {
-                match e.kind() {
-                    ErrorKind::PermissionDenied => {
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::PermissionDenied,
-                            format!(
-                                "permission denied opening lock file '{}': {}",
-                                self.path.display(),
-                                e
-                            ),
-                        )))
+        loop {
+            // Ensure parent directory exists
+            if let Some(parent) = self.path.parent() {
+                let mut dir_retry_count = 0;
+                loop {
+                    match std::fs::create_dir_all(parent) {
+                        Ok(_) => break,
+                        Err(e)
+                            if dir_retry_count < MAX_RETRIES
+                                && (e.kind() == ErrorKind::PermissionDenied
+                                    || e.kind() == ErrorKind::AlreadyExists) =>
+                        {
+                            dir_retry_count += 1;
+                            continue;
+                        }
+                        Err(e) => {
+                            return Err(LockError::Connection(Box::new(std::io::Error::new(
+                                e.kind(),
+                                format!(
+                                    "failed to ensure lock directory '{}' exists: {}",
+                                    parent.display(),
+                                    e
+                                ),
+                            ))));
+                        }
                     }
-                    ErrorKind::OutOfMemory => {
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::OutOfMemory,
-                            format!(
-                                "insufficient storage opening lock file '{}': {}",
-                                self.path.display(),
-                                e
-                            ),
-                        )))
-                    }
-                    ErrorKind::NotFound => {
-                        // This shouldn't happen since we use create(true), but handle it anyway
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::NotFound,
-                            format!(
-                                "lock file '{}' not found (parent directory may have been removed): {}",
-                                self.path.display(),
-                                e
-                            ),
-                        )))
-                    }
-                    ErrorKind::AlreadyExists => {
-                        // This shouldn't happen with create(true), but handle it
-                        LockError::Connection(Box::new(std::io::Error::new(
-                            ErrorKind::AlreadyExists,
-                            format!(
-                                "lock file '{}' already exists unexpectedly: {}",
-                                self.path.display(),
-                                e
-                            ),
-                        )))
-                    }
-                    _ => LockError::Connection(Box::new(std::io::Error::other(
-                        format!(
-                            "failed to open lock file '{}': {}",
-                            self.path.display(),
-                            e
-                        ),
-                    ))),
-                }
-            })?;
-
-        let lock_file = RwLock::new(file);
-
-        // Try to acquire the lock - the handle will do the actual acquisition
-        // This allows us to move lock_file without borrowing issues
-        match FileLockHandle::try_new(lock_file, self.path.clone()) {
-            Ok(handle) => Ok(Some(handle)),
-            Err(LockError::Backend(e)) => {
-                // Check if this is a "lock already held" error
-                let error_msg = e.to_string().to_lowercase();
-                if error_msg.contains("already held")
-                    || error_msg.contains("would block")
-                    || error_msg.contains("resource temporarily unavailable")
-                {
-                    // Lock is held by another process - this is expected
-                    Ok(None)
-                } else {
-                    // Unexpected backend error - wrap with context
-                    Err(LockError::Backend(Box::new(std::io::Error::other(
-                        format!(
-                            "failed to acquire lock on file '{}': {}",
-                            self.path.display(),
-                            e
-                        ),
-                    ))))
                 }
             }
-            Err(e) => Err(e),
+
+            // Open or create the file
+            // We DON'T use truncate(true) here to avoid race conditions where a waiting
+            // process might truncate a held lock file.
+            let file_result = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&self.path);
+
+            let file = match file_result {
+                Ok(f) => f,
+                Err(e) => {
+                    match e.kind() {
+                        ErrorKind::PermissionDenied | ErrorKind::IsADirectory => {
+                            // The path might be a directory
+                            if self.path.is_dir() {
+                                return Err(LockError::InvalidName(format!(
+                                    "Failed to create lock file '{}' because it is already the name of a directory",
+                                    self.path.display()
+                                )));
+                            }
+
+                            // If it's a file but we got PermissionDenied, it might be a transient
+                            // error during concurrent creation/deletion, or it might be read-only.
+                            if retry_count < MAX_RETRIES && e.kind() == ErrorKind::PermissionDenied
+                            {
+                                retry_count += 1;
+                                continue;
+                            }
+
+                            return Err(LockError::Connection(Box::new(std::io::Error::new(
+                                e.kind(),
+                                format!(
+                                    "failed to open lock file '{}': {}",
+                                    self.path.display(),
+                                    e
+                                ),
+                            ))));
+                        }
+                        ErrorKind::NotFound => {
+                            // Transient error during concurrent creation/deletion
+                            if retry_count < MAX_RETRIES {
+                                retry_count += 1;
+                                continue;
+                            }
+                            return Err(LockError::Connection(Box::new(e)));
+                        }
+                        _ => return Err(LockError::Connection(Box::new(e))),
+                    }
+                }
+            };
+
+            let lock_file = RwLock::new(file);
+
+            // Try to acquire the lock - the handle will do the actual acquisition
+            match FileLockHandle::try_new(lock_file, self.path.clone()) {
+                Ok(handle) => return Ok(Some(handle)),
+                Err(LockError::Backend(e)) => {
+                    // Check if this is a "lock already held" error
+                    // Most OS lock errors will fall into this category when the lock is held
+                    let error_msg = e.to_string().to_lowercase();
+                    if error_msg.contains("already held")
+                        || error_msg.contains("would block")
+                        || error_msg.contains("resource temporarily unavailable")
+                        || error_msg.contains("access is denied")
+                    // Windows error for locked file
+                    {
+                        // Lock is held by another process - this is expected
+                        return Ok(None);
+                    } else {
+                        // Unexpected backend error
+                        return Err(LockError::Backend(e));
+                    }
+                }
+                Err(e) => return Err(e),
+            }
         }
     }
 }

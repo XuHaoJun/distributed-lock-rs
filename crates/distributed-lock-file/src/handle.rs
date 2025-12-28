@@ -105,15 +105,16 @@ impl LockHandle for FileLockHandle {
 
     #[instrument(skip(self), fields(lock.path = %self.path.display(), backend = "file"))]
     async fn release(self) -> LockResult<()> {
+        // Wrap self in ManuallyDrop to prevent its Drop implementation from running
+        let mut this = std::mem::ManuallyDrop::new(self);
+
         // Release the lock by manually dropping the inner guard
-        // We need to extract the path before dropping self
-        let path = self.path.clone();
         unsafe {
-            std::mem::ManuallyDrop::drop(&mut std::mem::ManuallyDrop::new(self).inner);
+            std::mem::ManuallyDrop::drop(&mut this.inner);
         }
 
         // Try to delete the lock file (best effort)
-        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&this.path);
 
         Ok(())
     }
