@@ -5,9 +5,9 @@ use distributed_lock_core::{
     traits::DistributedLock,
 };
 use mongodb::{
-    bson::{doc, DateTime},
-    options::ReturnDocument,
     Collection, Database,
+    bson::{DateTime, doc},
+    options::ReturnDocument,
 };
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -88,17 +88,17 @@ impl MongoDistributedLock {
             .await
             .map_err(|e| LockError::Connection(Box::new(e)))?;
 
-        if let Some(doc) = result {
-            if doc.lock_id == lock_id {
-                let (_tx, rx) = watch::channel(false);
-                // Success!
-                return Ok(Some(MongoLockHandle {
-                    collection: self.collection.clone(),
-                    name: self.name.clone(),
-                    lock_id,
-                    lost_token: rx,
-                }));
-            }
+        if let Some(doc) = result
+            && doc.lock_id == lock_id
+        {
+            let (_tx, rx) = watch::channel(false);
+            // Success!
+            return Ok(Some(MongoLockHandle {
+                collection: self.collection.clone(),
+                name: self.name.clone(),
+                lock_id,
+                lost_token: rx,
+            }));
         }
 
         Ok(None)

@@ -1,10 +1,21 @@
 [package]
 name = "distributed-lock-mongo"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "MongoDB backend for distributed locks using atomic updates and TTL indexes"
+repository.workspace = true
+readme.workspace = true
+keywords = ["distributed", "lock", "mutex", "mongo", "mongodb"]
+categories = ["concurrency", "asynchronous", "database"]
+rust-version.workspace = true
+
+[lints.clippy]
+uninlined_format_args = "allow"
 
 [dependencies]
-distributed-lock-core = { path = "../distributed-lock-core" }
+distributed-lock-core = { workspace = true }
 mongodb = "3"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

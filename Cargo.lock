@@ -574,17 +574,19 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "distributed-lock-core",
  "distributed-lock-file",
+ "distributed-lock-mongo",
+ "distributed-lock-mysql",
  "distributed-lock-postgres",
  "distributed-lock-redis",
 ]
 
 [[package]]
 name = "distributed-lock-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror 1.0.69",
  "tokio",
@@ -592,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-file"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "criterion",
@@ -606,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-mongo"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "distributed-lock-core",
  "futures",
@@ -618,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-mysql"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "distributed-lock-core",
  "sha2",
@@ -629,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-postgres"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "distributed-lock-core",
  "sha1",
@@ -640,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-redis"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "distributed-lock-core",
  "fred",
@@ -651,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "distributed-lock-workspace"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "distributed-lock",

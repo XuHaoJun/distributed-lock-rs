@@ -1,20 +1,21 @@
 [package]
 name = "distributed-lock-file"
-version = "0.1.0"
-edition = "2021"
-authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "File system backend for distributed locks using OS-level file locking"
-repository = "https://github.com/XuHaoJun/distributed-lock-rs"
+repository.workspace = true
+readme.workspace = true
 keywords = ["distributed", "lock", "mutex", "file", "filesystem"]
 categories = ["concurrency", "asynchronous"]
-rust-version = "1.88"
+rust-version.workspace = true
 
 [lints.clippy]
 uninlined_format_args = "allow"
 
 [dependencies]
-distributed-lock-core = { path = "../distributed-lock-core", version = "0.1.0" }
+distributed-lock-core = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 fd-lock = "4"

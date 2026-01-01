@@ -293,10 +293,10 @@ impl DistributedReaderWriterLock for MySqlDistributedReaderWriterLock {
                 Some(handle) => return Ok(handle),
                 None => {
                     // Check if we've exceeded the timeout
-                    if let Some(timeout_duration) = timeout {
-                        if start_time.elapsed() >= timeout_duration {
-                            return Err(LockError::Timeout(timeout_duration));
-                        }
+                    if let Some(timeout_duration) = timeout
+                        && start_time.elapsed() >= timeout_duration
+                    {
+                        return Err(LockError::Timeout(timeout_duration));
                     }
 
                     // Wait a bit before retrying
@@ -318,10 +318,10 @@ impl DistributedReaderWriterLock for MySqlDistributedReaderWriterLock {
                 Some(handle) => return Ok(handle),
                 None => {
                     // Check if we've exceeded the timeout
-                    if let Some(timeout_duration) = timeout {
-                        if start_time.elapsed() >= timeout_duration {
-                            return Err(LockError::Timeout(timeout_duration));
-                        }
+                    if let Some(timeout_duration) = timeout
+                        && start_time.elapsed() >= timeout_duration
+                    {
+                        return Err(LockError::Timeout(timeout_duration));
                     }
 
                     // Wait a bit before retrying

@@ -35,7 +35,7 @@ where
     let clients_to_extend: Vec<(usize, RedisClient)> = acquire_results
         .iter()
         .enumerate()
-        .filter(|(_, &success)| success)
+        .filter(|&(_, &success)| success)
         .map(|(idx, _)| (idx, clients[idx].clone()))
         .collect();
 
@@ -65,11 +65,11 @@ where
     // Wait for tasks to complete or timeout
     loop {
         // Check timeout
-        if let Some(timeout_dur) = timeout_duration {
-            if start.elapsed() >= timeout_dur {
-                // Timeout - return inconclusive
-                return Ok(None);
-            }
+        if let Some(timeout_dur) = timeout_duration
+            && start.elapsed() >= timeout_dur
+        {
+            // Timeout - return inconclusive
+            return Ok(None);
         }
 
         // Check for cancellation

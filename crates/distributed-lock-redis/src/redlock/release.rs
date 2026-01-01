@@ -29,7 +29,7 @@ where
     let clients_to_release: Vec<RedisClient> = acquire_results
         .iter()
         .enumerate()
-        .filter(|(_, &success)| success)
+        .filter(|&(_, &success)| success)
         .map(|(idx, _)| clients[idx].clone())
         .collect();
 

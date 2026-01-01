@@ -5,7 +5,7 @@ use std::time::Duration;
 use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::traits::DistributedLock;
 use tokio::sync::watch;
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::handle::PostgresLockHandle;
 use crate::key::PostgresAdvisoryLockKey;

@@ -1,6 +1,6 @@
 //! Benchmarks for lock acquisition latency
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use distributed_lock_core::prelude::*;
 use distributed_lock_file::FileLockProvider;
 use std::time::Duration;

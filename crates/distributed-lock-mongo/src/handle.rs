@@ -1,5 +1,5 @@
 use distributed_lock_core::{error::LockResult, traits::LockHandle};
-use mongodb::{bson::doc, Collection};
+use mongodb::{Collection, bson::doc};
 use tokio::sync::watch;
 
 use crate::document::MongoLockDocument;

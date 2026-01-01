@@ -160,7 +160,7 @@ pub trait DistributedReaderWriterLock: Send + Sync {
 
     /// Attempts to acquire a read lock without waiting.
     fn try_acquire_read(&self)
-        -> impl Future<Output = LockResult<Option<Self::ReadHandle>>> + Send;
+    -> impl Future<Output = LockResult<Option<Self::ReadHandle>>> + Send;
 
     /// Acquires a write (exclusive) lock.
     ///

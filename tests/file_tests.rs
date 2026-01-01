@@ -417,9 +417,10 @@ async fn test_lock_path_is_directory() {
     let result = lock.try_acquire().await;
     assert!(result.is_err());
     let err = result.err().unwrap();
-    assert!(err
-        .to_string()
-        .contains("is already the name of a directory"));
+    assert!(
+        err.to_string()
+            .contains("is already the name of a directory")
+    );
 
     // Cleanup
     std::fs::remove_dir(lock_dir).unwrap();

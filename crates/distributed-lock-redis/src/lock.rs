@@ -6,7 +6,7 @@ use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::traits::DistributedLock;
 use fred::prelude::*;
 use fred::types::CustomCommand; // Correct import
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::redlock::{acquire::acquire_redlock, helper::RedLockHelper, timeouts::RedLockTimeouts};
 
@@ -268,7 +268,7 @@ impl DistributedLock for RedisDistributedLock {
         )
         .await?;
 
-        let result = match acquire_result {
+        match acquire_result {
             Some(result) if result.is_successful(clients.len()) => {
                 Span::current().record("acquired", true);
                 Span::current().record(
@@ -288,7 +288,6 @@ impl DistributedLock for RedisDistributedLock {
                 Span::current().record("reason", "lock_held");
                 Ok(None)
             }
-        };
-        result
+        }
     }
 }

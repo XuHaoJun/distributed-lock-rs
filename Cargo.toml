@@ -1,8 +1,17 @@
 [package]
 name = "distributed-lock-workspace"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 publish = false
+
+[workspace.package]
+version = "0.2.0"
+edition = "2024"
+authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/XuHaoJun/distributed-lock-rs"
+readme = "README.md"
+rust-version = "1.88"
 
 [lints.clippy]
 uninlined_format_args = "allow"
@@ -37,6 +46,12 @@ members = [
 ]
 
 [workspace.dependencies]
+distributed-lock-core = { path = "crates/distributed-lock-core", version = "0.2.0" }
+distributed-lock-postgres = { path = "crates/distributed-lock-postgres", version = "0.2.0" }
+distributed-lock-redis = { path = "crates/distributed-lock-redis", version = "0.2.0" }
+distributed-lock-file = { path = "crates/distributed-lock-file", version = "0.2.0" }
+distributed-lock-mysql = { path = "crates/distributed-lock-mysql", version = "0.2.0" }
+distributed-lock-mongo = { path = "crates/distributed-lock-mongo", version = "0.2.0" }
 tokio = { version = "1", features = ["full"] }
 thiserror = "1"
 tracing = "0.1"

@@ -78,7 +78,7 @@ impl RedisDistributedSemaphore {
     /// Generates a unique lock ID for this acquisition.
     fn generate_lock_id() -> String {
         let mut rng = rand::thread_rng();
-        format!("{:016x}", rng.gen::<u64>())
+        format!("{:016x}", rng.r#gen::<u64>())
     }
 
     /// Attempts to acquire a semaphore ticket without waiting.

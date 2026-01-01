@@ -6,7 +6,7 @@ use std::time::Duration;
 use distributed_lock_core::error::{LockError, LockResult};
 use distributed_lock_core::timeout::TimeoutValue;
 use distributed_lock_core::traits::DistributedLock;
-use tracing::{instrument, Span};
+use tracing::{Span, instrument};
 
 use crate::handle::FileLockHandle;
 use crate::name::get_lock_file_name;

@@ -42,7 +42,7 @@ impl RedLockHelper {
 
         // Generate random component
         let mut rng = rand::thread_rng();
-        let random: u64 = rng.gen();
+        let random: u64 = rng.r#gen();
 
         format!("{}_{}_{:016x}", pid, counter, random)
     }

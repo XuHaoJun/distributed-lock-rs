@@ -1,14 +1,15 @@
 [package]
 name = "distributed-lock-core"
-version = "0.1.0"
-edition = "2021"
-authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "Core traits and types for distributed locks"
-repository = "https://github.com/XuHaoJun/distributed-lock-rs"
+repository.workspace = true
+readme.workspace = true
 keywords = ["distributed", "lock", "mutex", "synchronization", "traits"]
 categories = ["concurrency", "asynchronous"]
-rust-version = "1.88"
+rust-version.workspace = true
 
 [lints.clippy]
 uninlined_format_args = "allow"

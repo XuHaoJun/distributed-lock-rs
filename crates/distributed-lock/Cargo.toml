@@ -1,22 +1,33 @@
 [package]
 name = "distributed-lock"
-version = "0.1.0"
-edition = "2021"
-authors = ["XuHaoJun <xuhaojuntw@gmail.com>"]
-license = "MIT"
-description = "Distributed locks for Rust with multiple backend support (PostgreSQL, Redis, file system)"
-repository = "https://github.com/XuHaoJun/distributed-lock-rs"
-keywords = ["distributed", "lock", "postgres", "redis", "file"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Distributed locks for Rust with multiple backend support (PostgreSQL, Redis, MySQL, MongoDB, file system)"
+repository.workspace = true
+readme.workspace = true
+keywords = ["distributed", "lock", "postgres", "redis", "mysql", "mongodb", "file"]
 categories = ["concurrency", "asynchronous", "database"]
-rust-version = "1.88"
+rust-version.workspace = true
 
 [lints.clippy]
 uninlined_format_args = "allow"
 
 [dependencies]
-distributed-lock-core = { path = "../distributed-lock-core", version = "0.1.0" }
-distributed-lock-postgres = { path = "../distributed-lock-postgres", version = "0.1.0" }
-distributed-lock-redis = { path = "../distributed-lock-redis", version = "0.1.0" }
-distributed-lock-file = { path = "../distributed-lock-file", version = "0.1.0" }
+distributed-lock-core = { workspace = true }
+distributed-lock-postgres = { workspace = true, optional = true }
+distributed-lock-redis = { workspace = true, optional = true }
+distributed-lock-file = { workspace = true, optional = true }
+distributed-lock-mysql = { workspace = true, optional = true }
+distributed-lock-mongo = { workspace = true, optional = true }
+
+[features]
+default = ["postgres", "redis", "file", "mysql", "mongo"]
+postgres = ["dep:distributed-lock-postgres"]
+redis = ["dep:distributed-lock-redis"]
+file = ["dep:distributed-lock-file"]
+mysql = ["dep:distributed-lock-mysql"]
+mongo = ["dep:distributed-lock-mongo"]
 
 [dev-dependencies]

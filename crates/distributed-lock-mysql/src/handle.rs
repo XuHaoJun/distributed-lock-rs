@@ -1,7 +1,7 @@
 //! MySQL lock handle implementation.
 
 use std::sync::Arc;
-use tokio::sync::{watch, Mutex};
+use tokio::sync::{Mutex, watch};
 
 use distributed_lock_core::error::LockResult;
 use distributed_lock_core::traits::LockHandle;
