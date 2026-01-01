@@ -7,7 +7,7 @@ license.workspace = true
 description = "Distributed locks for Rust with multiple backend support (PostgreSQL, Redis, MySQL, MongoDB, file system)"
 repository.workspace = true
 readme.workspace = true
-keywords = ["distributed", "lock", "postgres", "redis", "mysql", "mongodb", "file"]
+keywords = ["distributed", "lock", "postgres", "redis", "mongodb"]
 categories = ["concurrency", "asynchronous", "database"]
 rust-version.workspace = true
 
