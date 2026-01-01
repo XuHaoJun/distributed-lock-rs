@@ -54,10 +54,21 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mongo:
+        image: mongo:8.2.3-noble
+        ports:
+          - "27017:27017"
+        options: >-
+          --health-cmd "echo 'db.runCommand("ping").ok' | mongosh --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --name mongo_container
     env:
       REDIS_URL: redis://localhost:6379
       POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
       MYSQL_URL: mysql://mysql:password@localhost:3306/mysql
+      MONGODB_URI: mongodb://localhost:27017
     steps:
       - uses: actions/checkout@v4
       

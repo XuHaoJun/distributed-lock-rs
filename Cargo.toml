@@ -14,12 +14,15 @@ distributed-lock-file = { path = "crates/distributed-lock-file" }
 distributed-lock-mysql = { path = "crates/distributed-lock-mysql" }
 distributed-lock-postgres = { path = "crates/distributed-lock-postgres" }
 distributed-lock-redis = { path = "crates/distributed-lock-redis" }
+distributed-lock-mongo = { path = "crates/distributed-lock-mongo" }
 
 [dev-dependencies]
 tokio = { workspace = true }
 criterion = { version = "0.5", features = ["async_tokio"] }
 tempfile = "3"
 fred = "9"
+uuid = { version = "1", features = ["v4"] }
+mongodb = "3"
 
 [workspace]
 resolver = "2"
@@ -29,6 +32,7 @@ members = [
     "crates/distributed-lock-postgres",
     "crates/distributed-lock-redis",
     "crates/distributed-lock-file",
+    "crates/distributed-lock-mongo",
     "crates/distributed-lock",
 ]
 

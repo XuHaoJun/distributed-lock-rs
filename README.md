@@ -65,6 +65,15 @@ distributed-lock-file = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
+### MongoDB
+Uses MongoDB's atomic document updates and aggregation pipelines. Production-ready with support for TTL-based expiration.
+
+```toml
+[dependencies]
+distributed-lock-mongo = "0.1"
+tokio = { version = "1", features = ["full"] }
+```
+
 ### Meta-Crate (All Backends)
 Or use the meta-crate to get all backends:
 
@@ -193,6 +202,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### MongoDB Example
+
+```rust
+use distributed_lock_mongo::MongoDistributedLock;
+use distributed_lock_core::prelude::*;
+use std::time::Duration;
+use mongodb::Client;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::with_uri_str("mongodb://localhost:27017").await?;
+    let database = client.database("my_database");
+
+    let lock = MongoDistributedLock::new(
+        "my-resource".to_string(),
+        database,
+        None, // Default collection "DistributedLocks"
+        None  // Default options
+    );
+
+    let handle = lock.acquire(Some(Duration::from_secs(5))).await?;
+    do_work().await?;
+    handle.release().await?;
+    Ok(())
+}
+```
+
 ### Reader-Writer Locks
 
 ```rust
@@ -292,6 +328,7 @@ This library is organized as a Cargo workspace with separate crates:
 - `distributed-lock-mysql`: MySQL backend
 - `distributed-lock-postgres`: PostgreSQL backend
 - `distributed-lock-redis`: Redis backend
+- `distributed-lock-mongo`: MongoDB backend
 - `distributed-lock`: Meta-crate re-exporting all backends
 
 Each backend implements the same trait interfaces, allowing you to swap backends without changing application code.
@@ -304,6 +341,7 @@ Each backend implements the same trait interfaces, allowing you to swap backends
   - **PostgreSQL**: PostgreSQL 9.5+ with `pg_advisory_lock` support
   - **MySQL**: MySQL 5.7+ or MariaDB 10.0+ (reader-writer locks create a `distributed_locks` table)
   - **Redis**: Redis 2.6+ (Redis 3.0+ recommended)
+  - **MongoDB**: MongoDB 4.4+ (uses aggregation pipelines in updates)
   - **File**: Any POSIX-compliant filesystem
 
 ## License

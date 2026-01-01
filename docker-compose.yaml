@@ -48,8 +48,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  mongodb:
+    image: mongo:8.2.3-noble
+    container_name: distributed-lock-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongod", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   redis-data:
   postgres-data:
   mysql-data:
+  mongodb-data:
